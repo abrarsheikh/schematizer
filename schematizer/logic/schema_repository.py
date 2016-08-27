@@ -77,7 +77,8 @@ def register_avro_schema_from_avro_json(
         contains_pii,
         status=models.AvroSchemaStatus.READ_AND_WRITE,
         base_schema_id=None,
-        docs_required=True
+        docs_required=True,
+        alias=None
 ):
     """Add an Avro schema of given schema json object into schema store.
     The steps from checking compatibility to create new topic should be atomic.
@@ -85,12 +86,14 @@ def register_avro_schema_from_avro_json(
     :param avro_schema_json: JSON representation of Avro schema
     :param namespace: namespace string
     :param source: source name string
-    :param domain_owner_email: email of the schema owner
+    :param source_owner_email: email of the schema owner
     :param status: AvroStatusEnum: RW/R/Disabled
     :param base_schema_id: Id of the Avro schema from which the new schema is
     derived from
     :param docs_required: whether to-be-registered schema must contain doc
     strings
+    :param alias: label for the schema. (namespace, source, alias) combination
+    uniquely identifies a schema
     :return: New created AvroSchema object.
     """
 
@@ -120,22 +123,42 @@ def register_avro_schema_from_avro_json(
     )
     _lock_source(source)
 
-    topic_candidates = _get_topic_candidates(
-        source_id=source.id,
-        base_schema_id=base_schema_id,
-        contains_pii=contains_pii,
-        limit=None if base_schema_id else 1
-    )
+    if alias:
+        avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
+        if avro_schema:
+            topic = models.Topic.get_by_id(avro_schema.topic_id)
+            if _is_same_schema(
+                    avro_schema, avro_schema_json, base_schema_id, alias
+            ) and (topic.contains_pii == contains_pii):
+                return avro_schema
+            raise ValueError(
+                "ALIAS `{}` has already been taken.".format(alias)
+            )
 
-    for topic in topic_candidates:
-        _lock_topic_and_schemas(topic)
-        latest_schema = get_latest_schema_by_topic_id(topic.id)
-        if _is_same_schema(
-            schema=latest_schema,
-            avro_schema_json=avro_schema_json,
-            base_schema_id=base_schema_id
-        ):
-            return latest_schema
+        topic_candidates = _get_topic_candidates(
+            source_id=source.id,
+            base_schema_id=base_schema_id,
+            contains_pii=contains_pii,
+            limit=None if base_schema_id else 1
+        )
+    else:
+        topic_candidates = _get_topic_candidates(
+            source_id=source.id,
+            base_schema_id=base_schema_id,
+            contains_pii=contains_pii,
+            limit=None if base_schema_id else 1
+        )
+
+        for topic in topic_candidates:
+            _lock_topic_and_schemas(topic)
+            latest_schema = get_latest_schema_by_topic_id(topic.id)
+            if _is_same_schema(
+                schema=latest_schema,
+                avro_schema_json=avro_schema_json,
+                base_schema_id=base_schema_id,
+                alias=alias
+            ):
+                return latest_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_topic_compatible(
@@ -152,8 +175,21 @@ def register_avro_schema_from_avro_json(
         avro_schema_json=avro_schema_json,
         topic_id=most_recent_topic.id,
         status=status,
-        base_schema_id=base_schema_id
+        base_schema_id=base_schema_id,
+        alias=alias
     )
+
+
+def _get_schema_by_source_id_and_alias(source_id, alias):
+    return session.query(
+        models.AvroSchema
+    ).join(
+        models.Topic
+    ).filter(
+        models.AvroSchema.alias == alias,
+        models.AvroSchema.topic_id == models.Topic.id,
+        models.Topic.source_id == source_id,
+    ).first()
 
 
 def _strip_if_not_none(original_str):
@@ -162,10 +198,11 @@ def _strip_if_not_none(original_str):
     return original_str.strip()
 
 
-def _is_same_schema(schema, avro_schema_json, base_schema_id):
+def _is_same_schema(schema, avro_schema_json, base_schema_id, alias):
     return (schema and
             schema.avro_schema_json == avro_schema_json and
-            schema.base_schema_id == base_schema_id)
+            schema.base_schema_id == base_schema_id and
+            schema.alias == alias)
 
 
 def _is_topic_compatible(topic, avro_schema_json, contains_pii):
@@ -448,7 +485,8 @@ def _create_avro_schema(
         avro_schema_json,
         topic_id,
         status=models.AvroSchemaStatus.READ_AND_WRITE,
-        base_schema_id=None
+        base_schema_id=None,
+        alias=None
 ):
     avro_schema_elements = models.AvroSchema.create_schema_elements_from_json(
         avro_schema_json
@@ -458,7 +496,8 @@ def _create_avro_schema(
         avro_schema_json=avro_schema_json,
         topic_id=topic_id,
         status=status,
-        base_schema_id=base_schema_id
+        base_schema_id=base_schema_id,
+        alias=alias
     )
     session.add(avro_schema)
     session.flush()
