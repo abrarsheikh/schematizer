@@ -187,7 +187,6 @@ def _get_schema_by_source_id_and_alias(source_id, alias):
         models.Topic
     ).filter(
         models.AvroSchema.alias == alias,
-        models.AvroSchema.topic_id == models.Topic.id,
         models.Topic.source_id == source_id,
     ).first()
 
