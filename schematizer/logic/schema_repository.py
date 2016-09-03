@@ -123,6 +123,7 @@ def register_avro_schema_from_avro_json(
         source_email_owner.strip()
     )
     _lock_source(source)
+
     topic_candidates = _get_topic_candidates(
         source_id=source.id,
         base_schema_id=base_schema_id,
