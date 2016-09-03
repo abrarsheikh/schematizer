@@ -123,33 +123,24 @@ def register_avro_schema_from_avro_json(
         source_email_owner.strip()
     )
     _lock_source(source)
+    topic_candidates = _get_topic_candidates(
+        source_id=source.id,
+        base_schema_id=base_schema_id,
+        contains_pii=contains_pii,
+        limit=None if base_schema_id else 1
+    )
 
     if alias:
         avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
         if avro_schema:
-            topic = models.Topic.get_by_id(avro_schema.topic_id)
-            if _is_same_schema(
-                    avro_schema, avro_schema_json, base_schema_id, alias
-            ) and (topic.contains_pii == contains_pii):
+            topic_ids = [topic.id for topic in topic_candidates]
+            if _is_same_schema(avro_schema, avro_schema_json, base_schema_id,
+                alias) and avro_schema.topic_id in topic_ids:
                 return avro_schema
             raise ValueError(
                 "ALIAS `{}` has already been taken.".format(alias)
             )
-
-        topic_candidates = _get_topic_candidates(
-            source_id=source.id,
-            base_schema_id=base_schema_id,
-            contains_pii=contains_pii,
-            limit=None if base_schema_id else 1
-        )
     else:
-        topic_candidates = _get_topic_candidates(
-            source_id=source.id,
-            base_schema_id=base_schema_id,
-            contains_pii=contains_pii,
-            limit=None if base_schema_id else 1
-        )
-
         for topic in topic_candidates:
             _lock_topic_and_schemas(topic)
             latest_schema = get_latest_schema_by_topic_id(topic.id)
