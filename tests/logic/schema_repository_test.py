@@ -460,6 +460,13 @@ class TestSchemaRepository(DBTestCase):
     def alias(self, request):
         return request.param
 
+    @pytest.fixture(params=[
+        ('simple_schema_alias', None),
+        (None, 'simple_schema_alias')
+    ])
+    def conflicting_aliases(self, request):
+        return request.param
+
     def test_registering_from_avro_json_with_new_schema(
         self,
         namespace,
@@ -514,29 +521,61 @@ class TestSchemaRepository(DBTestCase):
         )
         self.assert_equal_avro_schema(schema1, schema2)
 
-    def test_registering_same_avro_schema_with_alias_for_conflicting_pii(self):
+    def test_registering_same_avro_schema_with_conflicting_aliases(
+        self,
+        conflicting_aliases
+    ):
+        old_alias, new_alias = conflicting_aliases
         schema_repo.register_avro_schema_from_avro_json(
             self.rw_schema_json,
             self.namespace_name,
             self.source_name,
             self.source_owner_email,
-            contains_pii=True,
-            alias="simple_schema_alias"
+            contains_pii=False,
+            alias=old_alias
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError) as err:
             schema_repo.register_avro_schema_from_avro_json(
                 self.rw_schema_json,
                 self.namespace_name,
                 self.source_name,
                 self.source_owner_email,
                 contains_pii=False,
-                alias="simple_schema_alias"
+                alias=new_alias
             )
+        assert err.value.message == (
+            "Same schema with a different ALIAS already exists."
+        )
+
+    def test_registering_same_avro_schema_with_alias_for_conflicting_pii(self):
+        alias = "simple_schema_alias"
+        schema_repo.register_avro_schema_from_avro_json(
+            self.rw_schema_json,
+            self.namespace_name,
+            self.source_name,
+            self.source_owner_email,
+            contains_pii=True,
+            alias=alias
+        )
+
+        with pytest.raises(ValueError) as err:
+            schema_repo.register_avro_schema_from_avro_json(
+                self.rw_schema_json,
+                self.namespace_name,
+                self.source_name,
+                self.source_owner_email,
+                contains_pii=False,
+                alias=alias
+            )
+        assert err.value.message == (
+            "ALIAS `{}` has already been taken.".format(alias)
+        )
 
     def test_registering_same_avro_schema_with_alias_for_diff_base_schema_id(
         self
     ):
+        alias = "simple_schema_alias"
         schema_repo.register_avro_schema_from_avro_json(
             self.rw_schema_json,
             self.namespace_name,
@@ -544,10 +583,10 @@ class TestSchemaRepository(DBTestCase):
             self.source_owner_email,
             contains_pii=False,
             base_schema_id=1,
-            alias="simple_schema_alias"
+            alias=alias
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError) as err:
             schema_repo.register_avro_schema_from_avro_json(
                 self.rw_schema_json,
                 self.namespace_name,
@@ -555,8 +594,11 @@ class TestSchemaRepository(DBTestCase):
                 self.source_owner_email,
                 contains_pii=False,
                 base_schema_id=2,
-                alias="simple_schema_alias"
+                alias=alias
             )
+        assert err.value.message == (
+            "ALIAS `{}` has already been taken.".format(alias)
+        )
 
     def test_registering_from_avro_json_with_pkey_added(self):
         actual_schema1 = schema_repo.register_avro_schema_from_avro_json(

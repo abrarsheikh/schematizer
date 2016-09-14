@@ -124,6 +124,17 @@ def register_avro_schema_from_avro_json(
     )
     _lock_source(source)
 
+    if alias:
+        avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
+        if avro_schema:
+            topic = models.Topic.get_by_id(avro_schema.topic_id)
+            if (_is_same_schema(avro_schema, avro_schema_json, base_schema_id)
+                    and topic.contains_pii == contains_pii):
+                return avro_schema
+            raise ValueError(
+                "ALIAS `{}` has already been taken.".format(alias)
+            )
+
     topic_candidates = _get_topic_candidates(
         source_id=source.id,
         base_schema_id=base_schema_id,
@@ -131,27 +142,19 @@ def register_avro_schema_from_avro_json(
         limit=None if base_schema_id else 1
     )
 
-    if alias:
-        avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
-        if avro_schema:
-            topic_ids = [topic.id for topic in topic_candidates]
-            if _is_same_schema(avro_schema, avro_schema_json, base_schema_id,
-                alias) and avro_schema.topic_id in topic_ids:
-                return avro_schema
-            raise ValueError(
-                "ALIAS `{}` has already been taken.".format(alias)
-            )
-    else:
-        for topic in topic_candidates:
-            _lock_topic_and_schemas(topic)
-            latest_schema = get_latest_schema_by_topic_id(topic.id)
-            if _is_same_schema(
-                schema=latest_schema,
-                avro_schema_json=avro_schema_json,
-                base_schema_id=base_schema_id,
-                alias=alias
-            ):
-                return latest_schema
+    for topic in topic_candidates:
+        _lock_topic_and_schemas(topic)
+        latest_schema = get_latest_schema_by_topic_id(topic.id)
+        if _is_same_schema(
+            schema=latest_schema,
+            avro_schema_json=avro_schema_json,
+            base_schema_id=base_schema_id
+        ):
+            if latest_schema.alias != alias:
+                raise ValueError(
+                    "Same schema with a different ALIAS already exists."
+                )
+            return latest_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_topic_compatible(
@@ -190,11 +193,10 @@ def _strip_if_not_none(original_str):
     return original_str.strip()
 
 
-def _is_same_schema(schema, avro_schema_json, base_schema_id, alias):
+def _is_same_schema(schema, avro_schema_json, base_schema_id):
     return (schema and
             schema.avro_schema_json == avro_schema_json and
-            schema.base_schema_id == base_schema_id and
-            schema.alias == alias)
+            schema.base_schema_id == base_schema_id)
 
 
 def _is_topic_compatible(topic, avro_schema_json, contains_pii):
