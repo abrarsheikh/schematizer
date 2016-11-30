@@ -44,15 +44,15 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def namespace_name(self):
-        return factories.fake_namespace
+        return 'foo'
 
     @property
     def transformed_namespace_name(self):
-        return factories.fake_transformed_namespace
+        return 'foo_transformed'
 
     @property
     def source_name(self):
-        return factories.fake_source
+        return 'bar'
 
     @property
     def another_source_name(self):
@@ -64,7 +64,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def source_owner_email(self):
-        return factories.fake_owner_email
+        return 'dev@test.com'
 
     @property
     def cluster_type(self):
@@ -105,7 +105,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def topic_name(self):
-        return factories.fake_topic_name
+        return 'topic_one'
 
     @pytest.fixture
     def topic(self):
@@ -118,7 +118,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def transformed_topic_name(self):
-        return factories.fake_transformed_topic_name
+        return 'topic_one_transformed'
 
     @pytest.fixture
     def transformed_topic(self):
@@ -134,11 +134,11 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def offset(self):
-        return factories.fake_offset
+        return 0
 
     @property
     def batch_size(self):
-        return factories.fake_batch_size
+        return 100
 
     @property
     def priority(self):
@@ -146,7 +146,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def filter_condition(self):
-        return factories.fake_filter_condition
+        return 'user=test_user'
 
     @property
     def avg_rows_per_second_cap(self):
@@ -154,11 +154,11 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def status(self):
-        return factories.fake_status
+        return 'SUCCESS'
 
     @property
     def status_value(self):
-        return factories.fake_status_value
+        return 3
 
     @pytest.fixture
     def refresh(self, source):
@@ -1039,7 +1039,14 @@ class TestSchemaRepository(DBTestCase):
         self.assert_equal_topic(new_topic, actual)
 
     def test_get_latest_topic_of_source_with_no_topic(self, namespace, source):
-        factories.SourceFactory.delete_topics(source.id)
+        # clear all the topics of the source
+        topics = session.query(models.Topic).filter(
+            models.Topic.source_id == source.id
+        ).all()
+        for topic in topics:
+            session.delete(topic)
+        session.flush()
+
         actual = schema_repo.get_latest_topic_of_namespace_source(
             namespace.name,
             source.name
@@ -1078,7 +1085,7 @@ class TestSchemaRepository(DBTestCase):
     ):
         with mock.patch(
             'schematizer.logic.schema_repository.'
-            'meta_attr_logic.get_meta_attributes_by_source',
+            'meta_attr_repo.get_meta_attributes_by_source',
             return_value=meta_attributes_for_source
         ), mock.patch(
             'schematizer.logic.schema_repository.'
@@ -1933,37 +1940,28 @@ class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
             mappings_dict[m.schema_id].add(m.meta_attr_schema_id)
         return mappings_dict
 
-    def test_add_unique_mappings(
+    def test_register_same_schema_with_same_meta_attr_mappings(
         self,
         sample_schema_json,
         dummy_src,
-        namespace_meta_attr,
-        source_meta_attr
     ):
         actual_schema_1 = schema_repo.register_avro_schema_from_avro_json(
             sample_schema_json,
             dummy_src.namespace.name,
             dummy_src.name,
-            'dexter@morgan.com',
+            source_owner_email='dexter@morgan.com',
             contains_pii=False,
             cluster_type=self.cluster_type
         )
-        expected = {
-            actual_schema_1.id: {
-                namespace_meta_attr.id,
-                source_meta_attr.id,
-            }
-        }
-        assert self._get_meta_attr_mappings(actual_schema_1.id) == expected
         actual_schema_2 = schema_repo.register_avro_schema_from_avro_json(
             sample_schema_json,
             dummy_src.namespace.name,
             dummy_src.name,
-            'dexter@morgan.com',
+            source_owner_email='dexter@morgan.com',
             contains_pii=False,
             cluster_type=self.cluster_type
         )
-        assert expected == self._get_meta_attr_mappings(actual_schema_2.id)
+        asserts.assert_equal_avro_schema(actual_schema_1, actual_schema_2)
 
     def test_add_duplicate_mappings(
         self,
@@ -1973,6 +1971,9 @@ class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
         namespace_meta_attr,
         source_meta_attr,
     ):
+        # TODO: this test doesn't make much sense. The registration should only
+        # care current meta attribute mappings to check if schema exists.
+        # if duplicate mappings are created, the meta attribte
         factories.create_meta_attribute_mapping(
             source_meta_attr.id,
             Namespace.__name__,

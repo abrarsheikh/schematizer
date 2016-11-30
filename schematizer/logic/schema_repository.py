@@ -18,6 +18,7 @@ from __future__ import unicode_literals
 
 import re
 import uuid
+from contextlib import contextmanager
 
 import simplejson
 from sqlalchemy import desc
@@ -27,9 +28,8 @@ from sqlalchemy.orm import exc as orm_exc
 from schematizer import models
 from schematizer.components.converters.converter_base import BaseConverter
 from schematizer.config import log
-from schematizer.environment_configs import FORCE_AVOID_INTERNAL_PACKAGES
 from schematizer.logic import exceptions as sch_exc
-from schematizer.logic import meta_attribute_mappers as meta_attr_logic
+from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
 from schematizer.models.database import session
 from schematizer.models.schema_meta_attribute_mapping import (
@@ -38,13 +38,6 @@ from schematizer.models.schema_meta_attribute_mapping import (
 
 
 try:
-    # TODO(DATAPIPE-1506|abrar): Currently we have
-    # force_avoid_internal_packages as a means of simulating an absence
-    # of a yelp's internal package. And all references
-    # of force_avoid_internal_packages have to be removed from
-    # schematizer after we have completely ready for open source.
-    if FORCE_AVOID_INTERNAL_PACKAGES:
-        raise ImportError
     from yelp_conn.mysqldb import IntegrityError
 except ImportError:
     from sqlalchemy.exc import IntegrityError
@@ -117,20 +110,22 @@ def register_avro_schema_from_avro_json(
     """Add an Avro schema of given schema json object into schema store.
     The steps from checking compatibility to create new topic should be atomic.
 
-    :param avro_schema_json: JSON representation of Avro schema
-    :param namespace_name: namespace string
-    :param source_name: source name string
-    :param source_owner_email: email of the schema owner
-    :param cluster_type: Type of kafka cluster Ex: datapipe, scribe, etc.
-        See http://y/datapipe_cluster_types for more info on cluster_types.
-    :param status: AvroStatusEnum: RW/R/Disabled
-    :param base_schema_id: Id of the Avro schema from which the new schema is
-        derived from
-    :param docs_required: whether to-be-registered schema must contain doc
-        strings
-    :return: New created AvroSchema object.
-    """
+    Args:
+        avro_schema_json: JSON representation of Avro schema
+        namespace_name (str): namespace string
+        source_name (str): source name string
+        source_owner_email (str): email of the schema owner
+        cluster_type (str): Type of kafka cluster Ex: datapipe, scribe, etc.
+            See http://y/datapipe_cluster_types for more info on cluster_types.
+        status (AvroStatusEnum, optional): RW/R/Disabled
+        base_schema_id (int, optional): Id of the Avro schema from which the
+            new schema is derived from
+        docs_required (bool): whether to-be-registered schema must contain doc
+            strings
 
+    Return:
+        New created AvroSchema object.
+    """
     source_owner_email = _strip_if_not_none(source_owner_email)
     source_name = _strip_if_not_none(source_name)
 
@@ -139,12 +134,47 @@ def register_avro_schema_from_avro_json(
 
     is_valid, error = models.AvroSchema.verify_avro_schema(avro_schema_json)
     if not is_valid:
-        raise ValueError("Invalid Avro schema JSON. Value: {0}. Error: {1}"
+        raise ValueError("Invalid Avro schema JSON. Value: {}. Error: {}"
                          .format(avro_schema_json, error))
 
     if docs_required:
         models.AvroSchema.verify_avro_schema_has_docs(avro_schema_json)
 
+    # This may have false negative, i.e. the schema may be created in the
+    # master db but not yet in the slave db. In such situation, the flow
+    # then performs the same checking in the master db. The expectation is
+    # checking schema in slave db should catch most of the cases when the
+    # schema already exists.
+    with _switch_to_read_only_connection() as is_switched:
+        topic_candidates = _get_topic_candidates(
+            namespace_name,
+            source_name,
+            base_schema_id,
+            contains_pii,
+            cluster_type
+        )
+        the_schema = _get_schema_if_exists(avro_schema_json, topic_candidates)
+        if the_schema:
+            return the_schema
+
+    # If the connection is not switched to read-only one above, it means there
+    # may be only one db and it doesn't need to perform the checking again.
+    # This usually happens if yelp_conn is not available.
+    if is_switched:
+        topic_candidates = _get_topic_candidates(
+            namespace_name,
+            source_name,
+            base_schema_id,
+            contains_pii,
+            cluster_type,
+            lock=True
+        )
+        the_schema = _get_schema_if_exists(avro_schema_json, topic_candidates)
+        if the_schema:
+            return the_schema
+
+    # TODO: the table locking doesn't seem to work correctly. The race
+    # condition still occurs.
     namespace = _get_namespace_or_create(namespace_name)
     _lock_namespace(namespace)
 
@@ -154,37 +184,6 @@ def register_avro_schema_from_avro_json(
         source_owner_email.strip()
     )
     _lock_source(source)
-
-    topic_candidates = _get_topic_candidates(
-        source_id=source.id,
-        base_schema_id=base_schema_id,
-        contains_pii=contains_pii,
-        cluster_type=cluster_type,
-        limit=None if base_schema_id else 1
-    )
-
-    for topic in topic_candidates:
-        _lock_topic_and_schemas(topic)
-        latest_schema = get_latest_schema_by_topic_id(topic.id)
-        is_same_schema = _is_same_schema(
-            schema=latest_schema,
-            avro_schema_json=avro_schema_json,
-            base_schema_id=base_schema_id,
-            source_id=source.id
-        )
-        log.info(
-            'Registering schema {} on namespace {} and source {}. '
-            'Checking same schema with latest {} on topic {}: {}'.format(
-                avro_schema_json,
-                namespace_name,
-                source_name,
-                latest_schema.id if latest_schema else 'None',
-                topic.name,
-                is_same_schema
-            )
-        )
-        if is_same_schema:
-            return latest_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_candidate_topic_compatible(
@@ -213,21 +212,91 @@ def _strip_if_not_none(original_str):
     return original_str.strip()
 
 
-def _is_same_schema(
-    schema,
-    avro_schema_json,
+@contextmanager
+def _switch_to_read_only_connection():
+    try:
+        with session.slave_connection_set:
+            yield True
+    except AttributeError:
+        yield False
+
+
+def _get_topic_candidates(
+    namespace_name,
+    source_name,
     base_schema_id,
-    source_id
+    contains_pii,
+    cluster_type,
+    lock=False
 ):
-    return (schema and
-            schema.avro_schema_json == avro_schema_json and
-            schema.base_schema_id == base_schema_id and
-            _are_meta_attr_mappings_same(schema.id, source_id))
+    source = get_source_by_fullname(namespace_name, source_name)
+    if not source:
+        return []
+
+    query = session.query(models.Topic).join(models.AvroSchema).filter(
+        models.Topic.source_id == source.id,
+        models.Topic.cluster_type == cluster_type,
+        models.Topic._contains_pii == int(contains_pii),
+        models.AvroSchema.base_schema_id == base_schema_id,
+        models.Topic.id == models.AvroSchema.topic_id,
+        models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
+    ).order_by(
+        models.AvroSchema.id.desc()
+    )
+    if not base_schema_id:
+        query = query.limit(1)
+    if lock:
+        query = query.with_for_update()
+    return query.all()
+
+
+def _get_schema_if_exists(new_schema_json, topic_candidates):
+    if not topic_candidates:
+        return None
+
+    meta_attr_mappings = meta_attr_repo.get_meta_attributes_by_source(
+        topic_candidates[0].source.id
+    )
+
+    # TODO: change to check all the schemas of topic candidates instead of
+    # latest one.
+    for topic_candidate in topic_candidates:
+        latest_schema = session.query(models.AvroSchema).filter(
+            models.AvroSchema.topic_id == topic_candidate.id
+        ).order_by(
+            models.AvroSchema.id.desc()
+        ).first()
+        log.info(
+            'Registering schema {} on source id {}. '
+            'Checking same schema with latest {} on topic {}'.format(
+                new_schema_json,
+                topic_candidates[0].source.id,
+                latest_schema.id if latest_schema else 'None',
+                topic_candidate.name
+            )
+        )
+        if _is_same_schema(latest_schema, new_schema_json, meta_attr_mappings):
+            return latest_schema
+    return None
+
+
+def _is_same_schema(existing_schema, new_schema_json, meta_attr_mappings):
+    if not existing_schema:
+        return False
+    if existing_schema.avro_schema_json != new_schema_json:
+        return False
+
+    schema_meta_attrs = session.query(
+        SchemaMetaAttributeMapping.meta_attr_schema_id
+    ).filter(
+        SchemaMetaAttributeMapping.schema_id == existing_schema.id
+    ).all()
+    return set(meta_attr_mappings) == set(o[0] for o in schema_meta_attrs)
 
 
 def _are_meta_attr_mappings_same(schema_id, source_id):
     return (set(get_meta_attributes_by_schema_id(schema_id)) ==
-            set(meta_attr_logic.get_meta_attributes_by_source(source_id)))
+            set(meta_attr_repo.get_meta_attributes_by_source(source_id)))
 
 
 def _is_candidate_topic_compatible(topic, avro_schema_json, contains_pii):
@@ -413,51 +482,6 @@ def get_latest_topic_of_namespace_source(namespace_name, source_name):
     ).order_by(
         models.Topic.id.desc()
     ).first()
-
-
-def _get_topic_candidates(
-    source_id,
-    base_schema_id,
-    contains_pii,
-    cluster_type,
-    limit=None,
-    enabled_schemas_only=True
-):
-    """ Get topic candidate(s) for the given args, in order of creation (newest
-    first).
-
-    :param int source_id: The source_id of the topic(s)
-    :param int|None base_schema_id: The base_schema_id of the schema(s) in the
-        topic(s). Note that this may be None, as is the case for any schemas
-        not derived from other schemas.
-    :param bool contains_pii: Limit to topics which either do or do not
-        contain PII. Defaults to None, which will not apply any filter.
-    :param string cluster_type : Limit to topics of same cluster type.
-    :param int|None limit: Provide a limit to the number of topics returned.
-    :param bool enabled_schemas_only: Set to True to limit results to schemas
-        which have not been disabled
-    :rtype: [schematizer.models.Topic]
-    """
-    query = session.query(
-        models.Topic
-    ).join(
-        models.AvroSchema
-    ).filter(
-        models.Topic.source_id == source_id,
-        models.Topic._contains_pii == int(contains_pii),
-        models.Topic.cluster_type == cluster_type,
-        models.AvroSchema.base_schema_id == base_schema_id
-    )
-    if enabled_schemas_only:
-        query = query.filter(
-            models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
-        )
-    query = query.order_by(
-        models.Topic.id.desc()
-    )
-    if limit:
-        query = query.limit(limit)
-    return query.all()
 
 
 def is_schema_compatible_in_topic(target_schema, topic):
@@ -805,7 +829,7 @@ def get_meta_attributes_by_schema_id(schema_id):
 
 def _add_meta_attribute_mappings(schema_id, source_id):
     mappings = []
-    for meta_attr_schema_id in meta_attr_logic.get_meta_attributes_by_source(
+    for meta_attr_schema_id in meta_attr_repo.get_meta_attributes_by_source(
         source_id
     ):
         new_mapping = SchemaMetaAttributeMapping(
