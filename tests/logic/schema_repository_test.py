@@ -1944,6 +1944,8 @@ class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
         self,
         sample_schema_json,
         dummy_src,
+        namespace_meta_attr,
+        source_meta_attr
     ):
         actual_schema_1 = schema_repo.register_avro_schema_from_avro_json(
             sample_schema_json,
@@ -1953,6 +1955,13 @@ class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
             contains_pii=False,
             cluster_type=self.cluster_type
         )
+        expected = {
+            actual_schema_1.id: {
+                namespace_meta_attr.id,
+                source_meta_attr.id,
+            }
+        }
+        assert self._get_meta_attr_mappings(actual_schema_1.id) == expected
         actual_schema_2 = schema_repo.register_avro_schema_from_avro_json(
             sample_schema_json,
             dummy_src.namespace.name,
