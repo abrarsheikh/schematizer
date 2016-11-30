@@ -13,7 +13,7 @@ RUN     apt-get update && \
             git
 
 # uwsgi deps
-RUN     apt-get install -y libyaml-0-2 libxml2 libpython2.7 libmysqlclient-dev libssl0.9.8
+RUN     apt-get update && apt-get install -y libyaml-0-2 libxml2 libpython2.7 libmysqlclient-dev libssl0.9.8
 
 # Add the service code
 ADD     requirements.txt /code/requirements.txt
