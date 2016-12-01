@@ -19,16 +19,15 @@ from __future__ import unicode_literals
 import copy
 import datetime
 import time
-from collections import defaultdict
 
 import mock
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from schematizer import models
 from schematizer.components import converters
 from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import schema_repository as schema_repo
-from schematizer.models import Namespace
 from schematizer.models.database import session
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.page_info import PageInfo
@@ -36,9 +35,13 @@ from schematizer.models.schema_meta_attribute_mapping import (
     SchemaMetaAttributeMapping)
 from schematizer_testing import asserts
 from schematizer_testing import factories
-from tests.logic.meta_attribute_mappers_test import GetMetaAttributeBaseTest
+from schematizer_testing import utils
 from tests.models.testing_db import DBTestCase
 
+
+# The test module uses sqlalchemy IntegrityError instead of yelp_conn
+# IntegrityError because yelp_conn catches and replaces it in the higher
+# level. See DATAPIPE-1471
 
 class TestSchemaRepository(DBTestCase):
 
@@ -360,110 +363,6 @@ class TestSchemaRepository(DBTestCase):
             created_at=self.some_datetime + datetime.timedelta(seconds=5)
         )
 
-    @property
-    def pkey_schema_json(self):
-        return {
-            "type": "record",
-            "name": "table_pkey",
-            "namespace": self.namespace_name,
-            "fields": [
-                {
-                    "name": "field_1",
-                    "type": "int",
-                    "doc": "field_1",
-                    "pkey": 1
-                },
-                {
-                    "name": "field_2",
-                    "type": "int",
-                    "doc": "field_2",
-                    "pkey": 2
-                },
-            ],
-            "doc": "I have a pkey!"
-        }
-
-    @property
-    def added_pkey_schema_json(self):
-        return {
-            "type": "record",
-            "name": "table_pkey",
-            "namespace": self.namespace_name,
-            "fields": [
-                {
-                    "name": "field_1",
-                    "type": "int",
-                    "doc": "field_1",
-                    "pkey": 1
-                },
-                {
-                    "name": "field_2",
-                    "type": "int",
-                    "doc": "field_2",
-                    "pkey": 2
-                },
-                {
-                    "name": "field_3",
-                    "type": "int",
-                    "doc": "field_3",
-                    "pkey": 3
-                }
-            ],
-            "doc": "I have a pkey!"
-        }
-
-    @property
-    def yet_another_pkey_schema_json(self):
-        return {
-            "type": "record",
-            "name": "table_pkey",
-            "namespace": self.namespace_name,
-            "fields": [
-                {
-                    "name": "field_1",
-                    "type": "int",
-                    "doc": "field_1",
-                    "pkey": 1
-                },
-                {
-                    "name": "field_3",
-                    "type": "int",
-                    "doc": "field_3",
-                    "pkey": 2
-                }
-            ],
-            "doc": "I have a pkey!"
-        }
-
-    @property
-    def another_pkey_schema_json(self):
-        return {
-            "type": "record",
-            "name": "table_pkey",
-            "namespace": self.namespace_name,
-            "fields": [
-                {
-                    "name": "field_1",
-                    "type": "int",
-                    "doc": "field_1",
-                    "pkey": 1
-                },
-                {
-                    "name": "field_2",
-                    "type": "int",
-                    "doc": "field_2",
-                    "pkey": 2
-                },
-                {
-                    "name": "field_new",
-                    "type": "int",
-                    "doc": "field_new",
-                    "default": 123
-                }
-            ],
-            "doc": "I have a pkey!"
-        }
-
     @pytest.yield_fixture
     def mock_compatible_func(self):
         with mock.patch(
@@ -503,507 +402,6 @@ class TestSchemaRepository(DBTestCase):
             cluster_type=self.cluster_type
         )
 
-    def test_registering_from_avro_json_with_new_schema(self, namespace):
-        expected_base_schema_id = 100
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            self.rw_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type,
-            base_schema_id=expected_base_schema_id
-        )
-
-        expected_schema = models.AvroSchema(
-            avro_schema_json=self.rw_schema_json,
-            status=models.AvroSchemaStatus.READ_AND_WRITE,
-            base_schema_id=expected_base_schema_id,
-            avro_schema_elements=self.rw_schema_elements
-        )
-        self.assert_equal_avro_schema_partial(expected_schema, actual_schema)
-
-        actual_source = session.query(models.Source).filter(
-            models.Source.id == actual_schema.topic.source.id
-        ).one()
-        expected_source = models.Source(
-            namespace_id=namespace.id,
-            name=self.source_name,
-            owner_email=self.source_owner_email
-        )
-        self.assert_equal_source_partial(expected_source, actual_source)
-
-    def test_register_schema_after_meta_attribute_mapping_changes(
-        self,
-        namespace,
-        source,
-        meta_attr_schema
-    ):
-        """ This test registers a schema json and then registers a namespace
-        meta attribute mapping. Then it registers the same schema json again
-        and verifies that a new schema gets registered in a new topic and meta
-        attributes are enforced on the schema..
-        """
-        schema1 = schema_repo.register_avro_schema_from_avro_json(
-            self.rw_schema_json,
-            namespace.name,
-            source.name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        factories.create_meta_attribute_mapping(
-            meta_attr_schema.id,
-            models.Namespace.__name__,
-            namespace.id
-        )
-
-        schema2 = schema_repo.register_avro_schema_from_avro_json(
-            self.rw_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        actual = schema_repo.get_meta_attributes_by_schema_id(schema2.id)
-        expected = [meta_attr_schema.id]
-
-        assert schema1.id != schema2.id
-        assert schema1.topic_id != schema2.topic_id
-        assert actual == expected
-
-    @pytest.mark.parametrize("cluster_type", ['datapipe', 'scribe'])
-    def test_registering_from_avro_json_with_cluster_types(self, cluster_type):
-        expected_base_schema_id = 100
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            self.rw_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=cluster_type,
-            base_schema_id=expected_base_schema_id
-        )
-        actual_topic = session.query(models.Topic).filter(
-            models.Topic.id == actual_schema.topic.id
-        ).one()
-        expected_topic = models.Topic(
-            name=actual_schema.topic.name,
-            source_id=actual_schema.topic.source_id,
-            contains_pii=actual_schema.topic.contains_pii,
-            cluster_type=cluster_type
-        )
-        self.assert_equal_topic_partial(expected_topic, actual_topic)
-
-    def test_registering_from_avro_json_without_cluster_type(self):
-        expected_base_schema_id = 100
-        with pytest.raises(TypeError):
-            schema_repo.register_avro_schema_from_avro_json(
-                self.rw_schema_json,
-                self.namespace_name,
-                self.source_name,
-                self.source_owner_email,
-                contains_pii=False,
-                base_schema_id=expected_base_schema_id
-            )
-
-    def test_registering_from_avro_json_with_pkey_added(self):
-        actual_schema1 = schema_repo.register_avro_schema_from_avro_json(
-            self.pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-
-        actual_schema2 = schema_repo.register_avro_schema_from_avro_json(
-            self.added_pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        assert actual_schema1.topic.id != actual_schema2.topic.id
-
-    def test_registering_from_avro_json_with_pkey_changed(self):
-        actual_schema1 = schema_repo.register_avro_schema_from_avro_json(
-            self.pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-
-        actual_schema2 = schema_repo.register_avro_schema_from_avro_json(
-            self.yet_another_pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        assert actual_schema1.topic.id != actual_schema2.topic.id
-
-    def test_registering_from_avro_json_with_pkey_unchanged(self):
-        actual_schema1 = schema_repo.register_avro_schema_from_avro_json(
-            self.pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-
-        actual_schema2 = schema_repo.register_avro_schema_from_avro_json(
-            self.another_pkey_schema_json,
-            self.namespace_name,
-            self.source_name,
-            self.source_owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        assert actual_schema1.topic.id == actual_schema2.topic.id
-
-    @pytest.mark.usefixtures('rw_schema')
-    def test_registering_from_avro_json_with_compatible_schema(
-            self,
-            topic,
-            mock_compatible_func
-    ):
-        mock_compatible_func.return_value = True
-
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            self.another_rw_schema_json,
-            topic.source.namespace.name,
-            topic.source.name,
-            topic.source.owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-
-        expected_schema = models.AvroSchema(
-            avro_schema_json=self.another_rw_schema_json,
-            status=models.AvroSchemaStatus.READ_AND_WRITE,
-            avro_schema_elements=self.another_rw_schema_elements
-        )
-        self.assert_equal_avro_schema_partial(expected_schema, actual_schema)
-        assert topic.id == actual_schema.topic_id
-
-    @pytest.mark.parametrize("email", [(None), (' ')])
-    def test_register_invalid_schema_email(
-        self,
-        email,
-        rw_transformed_schema
-    ):
-        avro_schema = rw_transformed_schema
-        with pytest.raises(ValueError) as e:
-            schema_repo.register_avro_schema_from_avro_json(
-                avro_schema.avro_schema_json,
-                avro_schema.topic.source.namespace.name,
-                avro_schema.topic.source.name,
-                email,
-                contains_pii=False,
-                cluster_type=self.cluster_type,
-                base_schema_id=avro_schema.base_schema_id
-            )
-        assert str(e.value) == "Source owner email must be non-empty."
-
-    @pytest.mark.parametrize("src_name", [(None), (' ')])
-    def test_register_invalid_schema_src_name(
-        self,
-        src_name,
-        rw_transformed_schema
-    ):
-        avro_schema = rw_transformed_schema
-        with pytest.raises(ValueError) as e:
-            schema_repo.register_avro_schema_from_avro_json(
-                avro_schema.avro_schema_json,
-                avro_schema.topic.source.namespace.name,
-                src_name,
-                avro_schema.topic.source.owner_email,
-                contains_pii=False,
-                cluster_type=self.cluster_type,
-                base_schema_id=avro_schema.base_schema_id
-            )
-        assert str(e.value) == "Source name must be non-empty."
-
-    def assert_new_topic_created_after_schema_register(
-        self,
-        topic,
-        contains_pii,
-        cluster_type
-    ):
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            self.another_rw_schema_json,
-            topic.source.namespace.name,
-            topic.source.name,
-            topic.source.owner_email,
-            contains_pii,
-            cluster_type
-        )
-
-        expected_schema = models.AvroSchema(
-            avro_schema_json=self.another_rw_schema_json,
-            status=models.AvroSchemaStatus.READ_AND_WRITE,
-            avro_schema_elements=self.another_rw_schema_elements
-        )
-        self.assert_equal_avro_schema_partial(expected_schema, actual_schema)
-
-        # new topic should be created
-        assert topic.id != actual_schema.topic_id
-        assert topic.name != actual_schema.topic.name
-
-        # the new topic should still be under the same source
-        assert topic.source_id == actual_schema.topic.source_id
-
-    @pytest.fixture(params=[{
-        "name": "foo",
-        "doc": "test_doc",
-        "type": "record",
-        "namespace": "test_namespace",
-        "fields": [
-            {"type": "int", "name": "col", "doc": "test_doc"}
-        ]},
-        {"name": "color", "doc": "test_d", "type": "enum", "symbols": ["red"]}
-    ])
-    def avro_schema_with_docs(self, request):
-        return request.param
-
-    def test_register_avro_schema_with_docs_require_doc(
-        self,
-        topic,
-        avro_schema_with_docs
-    ):
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            avro_schema_with_docs,
-            topic.source.namespace.name,
-            topic.source.name,
-            topic.source.owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type,
-            docs_required=True
-        )
-        assert actual_schema.avro_schema_json == avro_schema_with_docs
-
-    def test_register_avro_schema_with_docs_dont_require_doc(
-        self,
-        topic,
-        avro_schema_with_docs
-    ):
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            avro_schema_with_docs,
-            topic.source.namespace.name,
-            topic.source.name,
-            topic.source.owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type,
-            docs_required=False
-        )
-        assert actual_schema.avro_schema_json == avro_schema_with_docs
-
-    @pytest.fixture(params=[{
-        "name": "foo",
-        "doc": " ",
-        "type": "record",
-        "namespace": "test_namespace",
-        "fields": [
-            {"type": "int", "name": "col"}
-        ]},
-        {"name": "color", "type": "enum", "symbols": ["red"]}
-    ])
-    def avro_schema_without_docs(self, request):
-        return request.param
-
-    def test_register_avro_schema_without_docs_require_doc(
-        self,
-        topic,
-        avro_schema_without_docs
-    ):
-        with pytest.raises(ValueError):
-            schema_repo.register_avro_schema_from_avro_json(
-                avro_schema_without_docs,
-                topic.source.namespace.name,
-                topic.source.name,
-                topic.source.owner_email,
-                contains_pii=False,
-                cluster_type=self.cluster_type
-            )
-
-    def test_register_avro_schema_without_docs_dont_require_doc(
-        self,
-        topic,
-        avro_schema_without_docs
-    ):
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            avro_schema_without_docs,
-            topic.source.namespace.name,
-            topic.source.name,
-            topic.source.owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type,
-            docs_required=False
-        )
-        assert actual_schema.avro_schema_json == avro_schema_without_docs
-
-    @pytest.mark.usefixtures('rw_schema')
-    def test_create_schema_from_avro_json_with_incompatible_schema(
-        self,
-        topic,
-        mock_compatible_func
-    ):
-        mock_compatible_func.return_value = False
-        self.assert_new_topic_created_after_schema_register(
-            topic=topic,
-            contains_pii=topic.contains_pii,
-            cluster_type=topic.cluster_type
-        )
-
-    @pytest.mark.usefixtures('rw_schema')
-    def test_create_schema_from_avro_json_with_different_pii(
-        self,
-        topic,
-        mock_compatible_func
-    ):
-        mock_compatible_func.return_value = True
-        self.assert_new_topic_created_after_schema_register(
-            topic=topic,
-            contains_pii=not topic.contains_pii,
-            cluster_type=topic.cluster_type
-        )
-
-    @pytest.mark.usefixtures('rw_schema')
-    def test_create_schema_from_avro_json_with_different_cluster_type(
-        self,
-        topic,
-        mock_compatible_func
-    ):
-        mock_compatible_func.return_value = True
-        assert topic.cluster_type != 'scribe'
-        self.assert_new_topic_created_after_schema_register(
-            topic=topic,
-            contains_pii=topic.contains_pii,
-            cluster_type='scribe'
-        )
-
-    def _register_avro_schema(self, avro_schema):
-        return schema_repo.register_avro_schema_from_avro_json(
-            avro_schema.avro_schema_json,
-            avro_schema.topic.source.namespace.name,
-            avro_schema.topic.source.name,
-            avro_schema.topic.source.owner_email,
-            contains_pii=avro_schema.topic.contains_pii,
-            cluster_type=avro_schema.topic.cluster_type,
-            base_schema_id=avro_schema.base_schema_id
-        )
-
-    def test_registering_from_avro_json_with_same_schema(
-        self,
-        rw_schema,
-        mock_compatible_func
-    ):
-        mock_compatible_func.return_value = True
-        actual = self._register_avro_schema(rw_schema)
-        assert rw_schema.id == actual.id
-
-    def test_registering_same_transformed_schema_is_same(
-        self,
-        rw_transformed_schema
-    ):
-        result_a1 = self._register_avro_schema(rw_transformed_schema)
-        result_a2 = self._register_avro_schema(rw_transformed_schema)
-        self.assert_equal_avro_schema_partial(result_a1, result_a2)
-
-    def test_add_different_transformed_schemas_with_same_base_schema(
-        self,
-        rw_transformed_schema,
-        another_rw_transformed_schema
-    ):
-        # Registering a different transformed schema should result in a
-        # different schema/topic
-        result_a1 = self._register_avro_schema(rw_transformed_schema)
-        result_b = self._register_avro_schema(another_rw_transformed_schema)
-        assert result_a1.id != result_b.id
-        assert result_a1.topic.id != result_b.topic.id
-        assert result_a1.base_schema_id != result_b.base_schema_id
-
-        # Re-registering the original transformed schema will should
-        # result in the original's schema/topic
-        result_a2 = self._register_avro_schema(rw_transformed_schema)
-        assert result_a1.id == result_a2.id
-        assert result_a1.topic.id == result_a2.topic.id
-        assert result_a1.base_schema_id == result_a2.base_schema_id
-
-    def test_reregistering_compatible_transformed_schema_stays_in_topic(
-        self,
-        rw_transformed_schema,
-        rw_transformed_v2_schema
-    ):
-        result_a1 = self._register_avro_schema(rw_transformed_schema)
-        result_b = self._register_avro_schema(rw_transformed_v2_schema)
-        assert result_a1.id != result_b.id
-        assert result_a1.topic.id == result_b.topic.id
-        assert result_a1.base_schema_id == result_b.base_schema_id
-        result_a2 = self._register_avro_schema(rw_transformed_schema)
-        assert result_a1.id != result_a2.id
-        assert result_a1.topic.id == result_a2.topic.id
-        assert result_a1.base_schema_id == result_a2.base_schema_id
-
-    def test_registering_same_schema_twice(
-        self,
-        topic,
-        rw_schema
-    ):
-        result_a = self._register_avro_schema(rw_schema)
-        result_b = self._register_avro_schema(rw_schema)
-
-        # new schema should be created for the same topic
-        assert rw_schema.id == result_a.id
-        assert topic.id == result_a.topic_id
-        assert rw_schema.id == result_b.id
-        assert topic.id == result_b.topic_id
-        expected = models.AvroSchema(
-            avro_schema_json=self.rw_schema_json,
-            status=models.AvroSchemaStatus.READ_AND_WRITE,
-            avro_schema_elements=self.rw_schema_elements,
-            base_schema_id=rw_schema.base_schema_id
-        )
-        self.assert_equal_avro_schema_partial(expected, result_a)
-        self.assert_equal_avro_schema_partial(expected, result_b)
-
-    def test_registering_from_avro_json_with_diff_base_schema(
-        self,
-        topic,
-        rw_schema,
-        mock_compatible_func
-    ):
-        mock_compatible_func.return_value = True
-        expected_base_schema_id = 100
-
-        actual = schema_repo.register_avro_schema_from_avro_json(
-            rw_schema.avro_schema_json,
-            rw_schema.topic.source.namespace.name,
-            rw_schema.topic.source.name,
-            rw_schema.topic.source.owner_email,
-            contains_pii=False,
-            cluster_type=self.cluster_type,
-            base_schema_id=expected_base_schema_id
-        )
-
-        # new schema should be created for a new topic
-        assert rw_schema.id != actual.id
-        assert topic.id != actual.topic_id
-        expected = models.AvroSchema(
-            avro_schema_json=self.rw_schema_json,
-            status=models.AvroSchemaStatus.READ_AND_WRITE,
-            avro_schema_elements=self.rw_schema_elements,
-            base_schema_id=expected_base_schema_id
-        )
-        self.assert_equal_avro_schema_partial(expected, actual)
-
     def test_get_latest_topic_of_namespace_source(
         self,
         namespace,
@@ -1014,7 +412,7 @@ class TestSchemaRepository(DBTestCase):
             namespace.name,
             source.name
         )
-        self.assert_equal_topic(topic, actual)
+        asserts.assert_equal_topic(topic, actual)
         new_topic = factories.create_topic(
             topic_name='new_topic',
             namespace_name=source.namespace.name,
@@ -1024,11 +422,11 @@ class TestSchemaRepository(DBTestCase):
             namespace.name,
             source.name
         )
-        self.assert_equal_topic(new_topic, actual)
+        asserts.assert_equal_topic(new_topic, actual)
 
     def test_get_latest_topic_of_source_id(self, source, topic):
         actual = schema_repo.get_latest_topic_of_source_id(source.id)
-        self.assert_equal_topic(topic, actual)
+        asserts.assert_equal_topic(topic, actual)
 
         new_topic = factories.create_topic(
             topic_name='new_topic',
@@ -1036,7 +434,7 @@ class TestSchemaRepository(DBTestCase):
             source_name=source.name
         )
         actual = schema_repo.get_latest_topic_of_source_id(source.id)
-        self.assert_equal_topic(new_topic, actual)
+        asserts.assert_equal_topic(new_topic, actual)
 
     def test_get_latest_topic_of_source_with_no_topic(self, namespace, source):
         factories.SourceFactory.delete_topics(source.id)
@@ -1100,7 +498,7 @@ class TestSchemaRepository(DBTestCase):
 
     def test_get_topic_by_name(self, topic):
         actual = schema_repo.get_topic_by_name(self.topic_name)
-        self.assert_equal_topic(topic, actual)
+        asserts.assert_equal_topic(topic, actual)
 
     def test_get_topic_by_name_with_nonexistent_topic(self):
         actual = schema_repo.get_topic_by_name('foo')
@@ -1111,7 +509,7 @@ class TestSchemaRepository(DBTestCase):
             self.namespace_name,
             self.source_name
         )
-        self.assert_equal_source(source, actual)
+        asserts.assert_equal_source(source, actual)
 
     def test_get_source_by_fullname_with_nonexistent_source(self):
         actual = schema_repo.get_source_by_fullname('foo', 'bar')
@@ -1119,7 +517,7 @@ class TestSchemaRepository(DBTestCase):
 
     def test_get_schema_by_id(self, rw_schema):
         actual = schema_repo.get_schema_by_id(rw_schema.id)
-        self.assert_equal_avro_schema(rw_schema, actual)
+        asserts.assert_equal_avro_schema(rw_schema, actual)
 
     def test_get_schema_by_id_with_nonexistent_schema(self):
         actual = schema_repo.get_schema_by_id(0)
@@ -1127,7 +525,7 @@ class TestSchemaRepository(DBTestCase):
 
     def test_get_latest_schema_by_topic_id(self, topic, rw_schema):
         actual = schema_repo.get_latest_schema_by_topic_id(topic.id)
-        self.assert_equal_avro_schema(rw_schema, actual)
+        asserts.assert_equal_avro_schema(rw_schema, actual)
 
     def test_get_latest_schema_by_topic_id_with_nonexistent_topic(self):
 
@@ -1148,7 +546,7 @@ class TestSchemaRepository(DBTestCase):
 
     def test_get_latest_schema_by_topic_name(self, topic, rw_schema):
         actual = schema_repo.get_latest_schema_by_topic_name(topic.name)
-        self.assert_equal_avro_schema(rw_schema, actual)
+        asserts.assert_equal_avro_schema(rw_schema, actual)
 
     def test_get_latest_schema_by_topic_name_with_nonexistent_topic(self):
         with pytest.raises(sch_exc.EntityNotFoundException):
@@ -1174,7 +572,7 @@ class TestSchemaRepository(DBTestCase):
     def test_get_schemas_by_topic_name(self, topic, rw_schema):
         actual = schema_repo.get_schemas_by_topic_name(topic.name)
         assert 1 == len(actual)
-        self.assert_equal_avro_schema(rw_schema, actual[0])
+        asserts.assert_equal_avro_schema(rw_schema, actual[0])
 
     def test_get_schemas_by_topic_name_including_disabled(
         self,
@@ -1186,7 +584,7 @@ class TestSchemaRepository(DBTestCase):
         self.assert_equal_entities(
             expected_entities=[rw_schema, disabled_schema],
             actual_entities=actual,
-            assert_func=self.assert_equal_avro_schema
+            assert_func=asserts.assert_equal_avro_schema
         )
 
     def test_get_schemas_by_topic_name_with_nonexistent_topic(self):
@@ -1195,8 +593,11 @@ class TestSchemaRepository(DBTestCase):
 
     def test_get_schemas_by_topic_id(self, topic, rw_schema):
         actual = schema_repo.get_schemas_by_topic_id(topic.id)
-        assert 1 == len(actual)
-        self.assert_equal_avro_schema(rw_schema, actual[0])
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[rw_schema],
+            assert_func=asserts.assert_equal_avro_schema
+        )
 
     def test_get_schemas_after_given_timestamp_excluding_disabled_schemas(
         self,
@@ -1281,7 +682,7 @@ class TestSchemaRepository(DBTestCase):
         self.assert_equal_entities(
             expected_entities=[rw_schema, disabled_schema],
             actual_entities=actual,
-            assert_func=self.assert_equal_avro_schema
+            assert_func=asserts.assert_equal_avro_schema
         )
 
     def test_get_schemas_by_topic_id_with_nonexistent_topic(self):
@@ -1294,7 +695,7 @@ class TestSchemaRepository(DBTestCase):
     ):
         actual = schema_repo.get_schemas_by_criteria(self.namespace_name)
         assert len(actual) == 1
-        self.assert_equal_avro_schema(rw_schema, actual[0])
+        asserts.assert_equal_avro_schema(rw_schema, actual[0])
 
     def test_get_schemas_by_namespace_and_source_name(
         self,
@@ -1304,8 +705,11 @@ class TestSchemaRepository(DBTestCase):
             self.namespace_name,
             source_name=self.source_name
         )
-        assert len(actual) == 1
-        self.assert_equal_avro_schema(rw_schema, actual[0])
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[rw_schema],
+            assert_func=asserts.assert_equal_avro_schema
+        )
 
     def test_get_schemas_by_namespace_and_nonexistant_source_name(self):
         actual = schema_repo.get_schemas_by_criteria(
@@ -1361,7 +765,7 @@ class TestSchemaRepository(DBTestCase):
     def test_get_topics_by_source_id(self, source, topic):
         actual = schema_repo.get_topics_by_source_id(source.id)
         assert 1 == len(actual)
-        self.assert_equal_topic(topic, actual[0])
+        asserts.assert_equal_topic(topic, actual[0])
 
     def test_available_converters(self):
         expected = {
@@ -1495,59 +899,6 @@ class TestSchemaRepository(DBTestCase):
         with pytest.raises(EntityNotFoundError):
             schema_repo.get_meta_attributes_by_schema_id(schema_id=0)
 
-    def assert_equal_namespace(self, expected, actual):
-        assert expected.id == actual.id
-        assert expected.name == actual.name
-        assert expected.created_at == actual.created_at
-        assert expected.updated_at == actual.updated_at
-
-    def assert_equal_source_partial(self, expected, actual):
-        assert expected.namespace_id == actual.namespace_id
-        assert expected.name == actual.name
-        assert expected.owner_email == actual.owner_email
-
-    def assert_equal_source(self, expected, actual):
-        assert expected.id == actual.id
-        assert expected.created_at == actual.created_at
-        assert expected.updated_at == actual.updated_at
-        self.assert_equal_source_partial(expected, actual)
-
-    def assert_equal_topic_partial(self, expected, actual):
-        assert expected.name == actual.name
-        assert expected.cluster_type == actual.cluster_type
-
-    def assert_equal_topic(self, expected, actual):
-        assert expected.id == actual.id
-        assert expected.source_id == actual.source_id
-        assert expected.created_at == actual.created_at
-        assert expected.updated_at == actual.updated_at
-        self.assert_equal_topic_partial(expected, actual)
-
-    def assert_equal_avro_schema_partial(self, expected, actual):
-        assert expected.avro_schema == actual.avro_schema
-        assert expected.base_schema_id == actual.base_schema_id
-        assert expected.status == actual.status
-        self.assert_equal_entities(
-            expected.avro_schema_elements,
-            actual.avro_schema_elements,
-            self.assert_equal_avro_schema_element_partial,
-            filter_key='key'
-        )
-
-    def assert_equal_avro_schema(self, expected, actual):
-        assert expected.id == actual.id
-        assert expected.avro_schema == actual.avro_schema
-        assert expected.topic_id == actual.topic_id
-        assert expected.base_schema_id == actual.base_schema_id
-        assert expected.status == actual.status
-        assert expected.created_at == actual.created_at
-        assert expected.updated_at == actual.updated_at
-        self.assert_equal_entities(
-            expected.avro_schema_elements,
-            actual.avro_schema_elements,
-            self.assert_equal_avro_schema_element
-        )
-
     def assert_equal_entities(
         self,
         expected_entities,
@@ -1588,6 +939,440 @@ class TestSchemaRepository(DBTestCase):
         assert expected.batch_size == actual.batch_size
         assert expected.priority == actual.priority
         assert expected.filter_condition == actual.filter_condition
+
+
+class TestRegisterSchema(DBTestCase):
+
+    @property
+    def avro_schema_json(self):
+        return {
+            "type": "record",
+            "name": "example_schema",
+            "doc": "example schema for test",
+            "fields": [{"type": "int", "name": "id", "doc": "id"}]
+        }
+
+    @property
+    def pkey_avro_schema_json(self):
+        return {
+            "type": "record",
+            "name": "example_schema",
+            "doc": "example schema for test",
+            "fields": [{"type": "int", "name": "id", "doc": "id", "pkey": 1}],
+            "pkey": ["id"]
+        }
+
+    def test_register_new_avro_schema_json(self):
+        actual = self._register_avro_schema(self.avro_schema_json)
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(actual, expected)
+
+    def test_register_same_schema_twice(self):
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(self.avro_schema_json)
+        asserts.assert_equal_avro_schema(schema_one, schema_two)
+
+    def test_register_same_schema_in_diff_namespace(self):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            namespace_name='foo'
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            namespace_name='new_foo'
+        )
+        assert schema_one.topic.id != schema_two.topic.id
+
+        source_one = schema_one.topic.source
+        source_two = schema_two.topic.source
+        assert source_one.id != source_two.id
+        assert source_one.namespace.id != source_two.namespace.id
+        assert source_one.namespace.name == 'foo'
+        assert source_two.namespace.name == 'new_foo'
+
+    def test_register_same_schema_in_diff_source(self):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            source_name='bar'
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            source_name='new_bar'
+        )
+        assert schema_one.topic.id != schema_two.topic.id
+
+        src_one = schema_one.topic.source
+        src_two = schema_two.topic.source
+        assert src_one.id != src_two.id
+        assert src_one.name == 'bar'
+        assert src_two.name == 'new_bar'
+        asserts.assert_equal_namespace(src_one.namespace, src_two.namespace)
+
+    def test_register_same_schema_with_diff_base_schema(self):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=None
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_schema_with_different_pii(self):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            contains_pii=False
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            contains_pii=True
+        )
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_schema_with_pkey_added(self):
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        pkey_schema = self._register_avro_schema(self.pkey_avro_schema_json)
+
+        assert schema_one.topic.id != pkey_schema.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, pkey_schema.topic.source
+        )
+
+    def test_register_schema_with_same_pkey(self):
+        schema_one = self._register_avro_schema(self.pkey_avro_schema_json)
+        schema_two = self._register_avro_schema(self.pkey_avro_schema_json)
+        asserts.assert_equal_avro_schema(schema_one, schema_two)
+
+    def test_register_schem_with_new_pkey(self):
+        schema_json_one = {
+            "type": "record",
+            "name": "example_schema",
+            "doc": "example schema for test",
+            "fields": [
+                {"type": "int", "name": "id", "doc": "id", "pkey": 1},
+                {"type": "int", "name": "pid", "doc": "pid"},
+            ],
+            "pkey": ["id"]
+        }
+        schema_json_two = {
+            "type": "record",
+            "name": "example_schema",
+            "doc": "example schema for test",
+            "fields": [
+                {"type": "int", "name": "id", "doc": "id"},
+                {"type": "int", "name": "pid", "doc": "pid", "pkey": 1},
+            ],
+            "pkey": ["pid"]
+        }
+        schema_one = self._register_avro_schema(schema_json_one)
+        pkey_schema = self._register_avro_schema(schema_json_two)
+
+        assert schema_one.topic.id != pkey_schema.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, pkey_schema.topic.source
+        )
+
+    def test_register_schema_with_different_cluster_type(self):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            cluster_type='datapipe'
+        )
+        schema_two = self._register_avro_schema(
+            self.pkey_avro_schema_json,
+            cluster_type='scribe'
+        )
+
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_schema_without_cluster_type(self):
+        with pytest.raises(IntegrityError):
+            self._register_avro_schema(
+                self.avro_schema_json,
+                cluster_type=None
+            )
+
+    def test_register_full_compatible_schema(self):
+        # adding new field with default value is compatible change
+        compatible_schema_json = dict(self.avro_schema_json)
+        compatible_schema_json['fields'].append(
+            {"type": "long", "name": "amount", "doc": "amount", "default": 0}
+        )
+
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(compatible_schema_json)
+
+        assert schema_one.id != schema_two.id
+        asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
+
+    def test_register_incompatible_schema(self):
+        # changing field type from int to string is incompatible change
+        incompatible_schema_json = dict(self.avro_schema_json)
+        incompatible_schema_json['fields'][0]['type'] = 'string'
+
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(incompatible_schema_json)
+
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_same_schema_with_same_base_schema(self):
+        result_a1 = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        result_a2 = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        asserts.assert_equal_avro_schema(result_a1, result_a2)
+
+    def test_register_different_schemas_with_same_base_schema(self):
+        # Registering a different transformed schema should result in a
+        # different schema/topic
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        schema_two = self._register_avro_schema(
+            self.pkey_avro_schema_json,
+            base_schema_id=20
+        )
+        assert schema_one.base_schema_id != schema_two.base_schema_id
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+        # Re-registering the original transformed schema will should
+        # result in the original's schema/topic
+        schema_three = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        asserts.assert_equal_avro_schema(schema_three, schema_one)
+
+    def test_register_compatible_transformed_schema_stays_in_topic(self):
+        # adding new field with default value is compatible change
+        compatible_schema_json = dict(self.avro_schema_json)
+        compatible_schema_json['fields'].append(
+            {"type": "long", "name": "amount", "doc": "amount", "default": 0}
+        )
+
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        schema_two = self._register_avro_schema(
+            compatible_schema_json,
+            base_schema_id=10
+        )
+        assert schema_one.id != schema_two.id
+        asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
+
+        schema_three = self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=10
+        )
+        assert schema_one.id != schema_three.id
+        asserts.assert_equal_topic(schema_one.topic, schema_three.topic)
+
+    @pytest.fixture
+    def meta_attr_one_id(self):
+        return factories.create_avro_schema(
+            schema_json={"type": "fixed", "name": "abc", "size": 8},
+            namespace='meta_attr_foo',
+            source='meta_attr_bar',
+            topic_name='meta_attr_topic_one'
+        ).id
+
+    @pytest.fixture
+    def meta_attr_two_id(self):
+        return factories.create_avro_schema(
+            schema_json={"type": "fixed", "name": "abc", "size": 8},
+            namespace='meta_attr_foo',
+            source='meta_attr_baz',
+            topic_name='meta_attr_topic_two'
+        ).id
+
+    def test_register_schema_with_meta_attrs(
+        self, meta_attr_one_id, meta_attr_two_id
+    ):
+        # add meta attribute to namespace and source
+        some_schema = self._register_avro_schema(self.avro_schema_json)
+        factories.create_meta_attribute_mapping(
+            meta_attr_one_id,
+            models.Namespace.__name__,
+            some_schema.topic.source.namespace.id
+        )
+        factories.create_meta_attribute_mapping(
+            meta_attr_two_id,
+            models.Source.__name__,
+            some_schema.topic.source.id
+        )
+
+        actual = self._register_avro_schema(self.avro_schema_json)
+
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(actual, expected)
+
+        actual_meta_attr_ids = self._get_meta_attr_ids(actual.id)
+        expected_meta_attr_ids = {meta_attr_one_id, meta_attr_two_id}
+        assert actual_meta_attr_ids == expected_meta_attr_ids
+
+    def test_register_schema_will_pickup_new_meta_attrs(
+        self, meta_attr_one_id
+    ):
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_one_meta_attr_ids = self._get_meta_attr_ids(schema_one.id)
+        assert not schema_one_meta_attr_ids
+
+        # add meta attribute to source
+        factories.create_meta_attribute_mapping(
+            meta_attr_one_id,
+            models.Source.__name__,
+            schema_one.topic.source.id
+        )
+        schema_two = self._register_avro_schema(self.avro_schema_json)
+        schema_two_meta_attr_ids = self._get_meta_attr_ids(schema_two.id)
+        assert schema_two_meta_attr_ids == {meta_attr_one_id}
+
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_same_schema_and_meta_attrs_twice(self, meta_attr_one_id):
+        some_schema = self._register_avro_schema(self.avro_schema_json)
+        factories.create_meta_attribute_mapping(
+            meta_attr_one_id,
+            models.Source.__name__,
+            some_schema.topic.source.id
+        )
+
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(self.avro_schema_json)
+        asserts.assert_equal_avro_schema(schema_one, schema_two)
+
+    def test_register_schema_when_same_meta_attr_mapped_to_ns_and_src(
+        self, meta_attr_one_id
+    ):
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        factories.create_meta_attribute_mapping(
+            meta_attr_one_id,
+            models.Namespace.__name__,
+            schema_one.topic.source.id
+        )
+        factories.create_meta_attribute_mapping(
+            meta_attr_one_id,
+            models.Source.__name__,
+            schema_one.topic.source.id
+        )
+
+        actual = self._register_avro_schema(self.avro_schema_json)
+
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(expected, actual)
+        actual_meta_attr_ids = self._get_meta_attr_ids(actual.id)
+        assert actual_meta_attr_ids == {meta_attr_one_id}
+
+    @pytest.mark.parametrize("schema_with_doc", [
+        {
+            "name": "foo",
+            "doc": "test_doc",
+            "type": "record",
+            "namespace": "test_namespace",
+            "fields": [{"type": "int", "name": "col", "doc": "test_doc"}]
+        },
+        {"name": "color", "doc": "test_d", "type": "enum", "symbols": ["red"]}
+    ])
+    @pytest.mark.parametrize("docs_required", [True, False])
+    def test_register_schema_with_doc(self, schema_with_doc, docs_required):
+        actual = self._register_avro_schema(
+            schema_with_doc,
+            docs_required=docs_required
+        )
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(actual, expected)
+
+    @pytest.fixture(params=[
+        {
+            "name": "foo",
+            "doc": " ",
+            "type": "record",
+            "namespace": "test_namespace",
+            "fields": [{"type": "int", "name": "col"}]
+        },
+        {"name": "color", "type": "enum", "symbols": ["red"]}
+    ])
+    def avro_schema_without_doc(self, request):
+        return request.param
+
+    def test_register_schema_without_doc_but_docs_required(
+        self, avro_schema_without_doc
+    ):
+        with pytest.raises(ValueError):
+            self._register_avro_schema(avro_schema_without_doc)
+
+    def test_register_schema_without_doc_and_doc_not_required(
+        self, avro_schema_without_doc
+    ):
+        actual = self._register_avro_schema(
+            avro_schema_without_doc,
+            docs_required=False
+        )
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(actual, expected)
+
+    @pytest.mark.parametrize("empty_email", [(None), (' ')])
+    def test_register_schema_with_empty_owner_email(self, empty_email):
+        with pytest.raises(ValueError) as e:
+            self._register_avro_schema(
+                self.avro_schema_json,
+                source_owner_email=empty_email
+            )
+        assert str(e.value) == "Source owner email must be non-empty."
+
+    @pytest.mark.parametrize("empty_src_name", [(None), (' ')])
+    def test_register_schema_with_empty_src_name(self, empty_src_name):
+        with pytest.raises(ValueError) as e:
+            self._register_avro_schema(
+                self.avro_schema_json,
+                source_name=empty_src_name
+            )
+        assert str(e.value) == "Source name must be non-empty."
+
+    def _register_avro_schema(self, avro_schema_json, **overrides):
+        params = {
+            'avro_schema_json': avro_schema_json,
+            'namespace_name': 'foo',
+            'source_name': 'bar',
+            'source_owner_email': 'test@example.com',
+            'contains_pii': False,
+            'cluster_type': 'datapipe'
+        }
+        if overrides:
+            params.update(overrides)
+        return schema_repo.register_avro_schema_from_avro_json(**params)
+
+    def _get_meta_attr_ids(self, schema_id):
+        result = session.query(
+            SchemaMetaAttributeMapping.meta_attr_schema_id
+        ).filter(
+            SchemaMetaAttributeMapping.schema_id == schema_id
+        ).order_by(SchemaMetaAttributeMapping.id).all()
+        return {entry[0] for entry in result}
 
 
 @pytest.mark.usefixtures('sorted_topics', 'sorted_refreshes')
@@ -1900,109 +1685,3 @@ class TestGetTopicsByCriteria(DBTestCase):
             expected_list=expected,
             assert_func=asserts.assert_equal_topic
         )
-
-
-@pytest.mark.usefixtures(
-    'namespace_meta_attr_mapping',
-    'source_meta_attr_mapping',
-)
-class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
-
-    @property
-    def cluster_type(self):
-        return 'datapipe'
-
-    @pytest.fixture
-    def sample_schema_json(self):
-        return {
-            "name": "dummy_schema_for_meta_attr",
-            "type": "record",
-            "fields": [
-                {"name": "id", "type": "int", "doc": "id", "default": 0},
-                {"name": "name", "type": "string", "doc": "name"}
-            ],
-            "doc": "Sample Schema to test MetaAttrMappings"
-        }
-
-    def _get_meta_attr_mappings(self, schema_id):
-        result = session.query(SchemaMetaAttributeMapping).filter(
-            SchemaMetaAttributeMapping.schema_id == schema_id
-        ).all()
-        mappings_dict = defaultdict(set)
-        for m in result:
-            mappings_dict[m.schema_id].add(m.meta_attr_schema_id)
-        return mappings_dict
-
-    def test_add_unique_mappings(
-        self,
-        sample_schema_json,
-        dummy_src,
-        namespace_meta_attr,
-        source_meta_attr
-    ):
-        actual_schema_1 = schema_repo.register_avro_schema_from_avro_json(
-            sample_schema_json,
-            dummy_src.namespace.name,
-            dummy_src.name,
-            'dexter@morgan.com',
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        expected = {
-            actual_schema_1.id: {
-                namespace_meta_attr.id,
-                source_meta_attr.id,
-            }
-        }
-        assert self._get_meta_attr_mappings(actual_schema_1.id) == expected
-        actual_schema_2 = schema_repo.register_avro_schema_from_avro_json(
-            sample_schema_json,
-            dummy_src.namespace.name,
-            dummy_src.name,
-            'dexter@morgan.com',
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        assert expected == self._get_meta_attr_mappings(actual_schema_2.id)
-
-    def test_add_duplicate_mappings(
-        self,
-        dummy_namespace,
-        sample_schema_json,
-        dummy_src,
-        namespace_meta_attr,
-        source_meta_attr,
-    ):
-        factories.create_meta_attribute_mapping(
-            source_meta_attr.id,
-            Namespace.__name__,
-            dummy_namespace.id
-        )
-        actual_schema = schema_repo.register_avro_schema_from_avro_json(
-            sample_schema_json,
-            dummy_src.namespace.name,
-            dummy_src.name,
-            'dexter@morgan.com',
-            contains_pii=False,
-            cluster_type=self.cluster_type
-        )
-        expected = {
-            actual_schema.id: {
-                namespace_meta_attr.id,
-                source_meta_attr.id,
-            }
-        }
-        assert expected == self._get_meta_attr_mappings(actual_schema.id)
-
-    def test_handle_non_existing_mappings(
-        self,
-        biz_topic, biz_schema_json, biz_schema_elements
-    ):
-        actual = factories.create_avro_schema(
-            biz_schema_json,
-            biz_schema_elements,
-            topic_name=biz_topic.name,
-            namespace=biz_topic.source.namespace.name,
-            source=biz_topic.source.name
-        )
-        assert not self._get_meta_attr_mappings(actual.id)
