@@ -1980,9 +1980,6 @@ class TestAddToSchemaMetaAttributeMapping(GetMetaAttributeBaseTest):
         namespace_meta_attr,
         source_meta_attr,
     ):
-        # TODO: this test doesn't make much sense. The registration should only
-        # care current meta attribute mappings to check if schema exists.
-        # if duplicate mappings are created, the meta attribte
         factories.create_meta_attribute_mapping(
             source_meta_attr.id,
             Namespace.__name__,
