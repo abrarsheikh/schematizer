@@ -145,6 +145,11 @@ def register_avro_schema_from_avro_json(
     # then performs the same checking in the master db. The expectation is
     # checking schema in slave db should catch most of the cases when the
     # schema already exists.
+    # The `_switch_to_read_only_connection` context manager returns a flag
+    # indicating whether the connection is actually switched to read-only db.
+    # This flag is used to determine whether the flow should check the existing
+    # schema again in the master db (read-write) for false-negative case.
+    # TODO [clin|DATAPIPE-2165] nice to have test to verify right db is used.
     with _switch_to_read_only_connection() as is_switched:
         topic_candidates = _get_topic_candidates(
             namespace_name,
