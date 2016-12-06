@@ -220,7 +220,7 @@ def _strip_if_not_none(original_str):
 @contextmanager
 def _switch_to_read_only_connection():
     try:
-        with session.slave_connection_set:
+        with session.reporting_connection_set:
             yield True
     except AttributeError:
         yield False
