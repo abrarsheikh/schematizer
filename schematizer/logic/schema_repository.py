@@ -267,7 +267,7 @@ def _get_schema_if_exists(
 
     # TODO: change to check all the schemas of topic candidates instead of
     # latest one.
-    for topic in topic_id_candidates:
+    for topic in topic_candidates:
         if lock:
             _lock_topic_and_schemas(topic.id)
         latest_schema = get_latest_schema_by_topic_id(topic.id)
