@@ -246,7 +246,7 @@ def _get_topic_candidates(
         models.Topic.id == models.AvroSchema.topic_id,
         models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
     ).order_by(
-        models.AvroSchema.id.desc()
+        models.Topic.id.desc()
     )
     if not base_schema_id:
         query = query.limit(1)
