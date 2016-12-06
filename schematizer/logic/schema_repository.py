@@ -151,30 +151,16 @@ def register_avro_schema_from_avro_json(
     # schema again in the master db (read-write) for false-negative case.
     # TODO [clin|DATAPIPE-2165] nice to have test to verify right db is used.
     with _switch_to_read_only_connection() as is_switched:
-        topic_candidates = _get_topic_candidates(
+        source_id, topic_candidates = _get_source_id_and_topic_candidates(
             namespace_name,
             source_name,
             base_schema_id,
             contains_pii,
             cluster_type
         )
-        the_schema = _get_schema_if_exists(avro_schema_json, topic_candidates)
-        if the_schema:
-            return the_schema
-
-    # If the connection is not switched to read-only one above, it means there
-    # may be only one db and it doesn't need to perform the checking again.
-    # This usually happens if yelp_conn is not available.
-    if is_switched:
-        topic_candidates = _get_topic_candidates(
-            namespace_name,
-            source_name,
-            base_schema_id,
-            contains_pii,
-            cluster_type,
-            lock=True
+        the_schema = _get_schema_if_exists(
+            avro_schema_json, topic_candidates, source_id
         )
-        the_schema = _get_schema_if_exists(avro_schema_json, topic_candidates)
         if the_schema:
             return the_schema
 
@@ -189,6 +175,23 @@ def register_avro_schema_from_avro_json(
         source_owner_email.strip()
     )
     _lock_source(source)
+
+    # If the connection is not switched to read-only one above, it means there
+    # may be only one db and it doesn't need to perform the checking again.
+    # This usually happens if yelp_conn is not available.
+    if is_switched:
+        source_id, topic_candidates = _get_source_id_and_topic_candidates(
+            namespace_name,
+            source_name,
+            base_schema_id,
+            contains_pii,
+            cluster_type
+        )
+        the_schema = _get_schema_if_exists(
+            avro_schema_json, topic_candidates, source_id, lock=True
+        )
+        if the_schema:
+            return the_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_candidate_topic_compatible(
@@ -220,23 +223,22 @@ def _strip_if_not_none(original_str):
 @contextmanager
 def _switch_to_read_only_connection():
     try:
-        with session.reporting_connection_set:
+        with session.slave_connection_set:
             yield True
     except AttributeError:
         yield False
 
 
-def _get_topic_candidates(
+def _get_source_id_and_topic_candidates(
     namespace_name,
     source_name,
     base_schema_id,
     contains_pii,
-    cluster_type,
-    lock=False
+    cluster_type
 ):
     source = get_source_by_fullname(namespace_name, source_name)
     if not source:
-        return []
+        return None, []
 
     query = session.query(models.Topic).join(models.AvroSchema).filter(
         models.Topic.source_id == source.id,
@@ -250,34 +252,32 @@ def _get_topic_candidates(
     )
     if not base_schema_id:
         query = query.limit(1)
-    if lock:
-        query = query.with_for_update()
-    return query.all()
+    return source.id, query.all()
 
 
-def _get_schema_if_exists(new_schema_json, topic_candidates):
-    if not topic_candidates:
+def _get_schema_if_exists(
+    new_schema_json, topic_id_candidates, source_id, lock=False
+):
+    if not topic_id_candidates:
         return None
 
-    meta_attr_mappings = meta_attr_repo.get_meta_attributes_by_source(
-        topic_candidates[0].source.id
-    )
+    meta_attr_mappings = {
+        o for o in meta_attr_repo.get_meta_attributes_by_source(source_id)
+    }
 
     # TODO: change to check all the schemas of topic candidates instead of
     # latest one.
-    for topic_candidate in topic_candidates:
-        latest_schema = session.query(models.AvroSchema).filter(
-            models.AvroSchema.topic_id == topic_candidate.id
-        ).order_by(
-            models.AvroSchema.id.desc()
-        ).first()
+    for topic in topic_id_candidates:
+        if lock:
+            _lock_topic_and_schemas(topic.id)
+        latest_schema = get_latest_schema_by_topic_id(topic.id)
         log.info(
             'Registering schema {} on source id {}. '
             'Checking same schema with latest {} on topic {}'.format(
                 new_schema_json,
-                topic_candidates[0].source.id,
+                source_id,
                 latest_schema.id if latest_schema else 'None',
-                topic_candidate.name
+                topic.name
             )
         )
         if _is_same_schema(latest_schema, new_schema_json, meta_attr_mappings):
@@ -296,7 +296,7 @@ def _is_same_schema(existing_schema, new_schema_json, meta_attr_mappings):
     ).filter(
         SchemaMetaAttributeMapping.schema_id == existing_schema.id
     ).all()
-    return set(meta_attr_mappings) == set(o[0] for o in schema_meta_attrs)
+    return meta_attr_mappings == set(o[0] for o in schema_meta_attrs)
 
 
 def _are_meta_attr_mappings_same(schema_id, source_id):
@@ -450,18 +450,18 @@ def _lock_source(source):
     ).with_for_update()
 
 
-def _lock_topic_and_schemas(topic):
-    if not topic:
+def _lock_topic_and_schemas(topic_id):
+    if not topic_id:
         return
     session.query(
         models.Topic
     ).filter(
-        models.Topic.id == topic.id
+        models.Topic.id == topic_id
     ).with_for_update()
     session.query(
         models.AvroSchema
     ).filter(
-        models.AvroSchema.topic_id == topic.id
+        models.AvroSchema.topic_id == topic_id
     ).with_for_update()
 
 
