@@ -47,15 +47,15 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def namespace_name(self):
-        return factories.fake_namespace
+        return 'foo'
 
     @property
     def transformed_namespace_name(self):
-        return factories.fake_transformed_namespace
+        return 'foo_transformed'
 
     @property
     def source_name(self):
-        return factories.fake_source
+        return 'bar'
 
     @property
     def another_source_name(self):
@@ -67,7 +67,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def source_owner_email(self):
-        return factories.fake_owner_email
+        return 'dev@test.com'
 
     @property
     def cluster_type(self):
@@ -108,7 +108,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def topic_name(self):
-        return factories.fake_topic_name
+        return 'topic_one'
 
     @pytest.fixture
     def topic(self):
@@ -121,7 +121,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def transformed_topic_name(self):
-        return factories.fake_transformed_topic_name
+        return 'topic_one_transformed'
 
     @pytest.fixture
     def transformed_topic(self):
@@ -137,11 +137,11 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def offset(self):
-        return factories.fake_offset
+        return 0
 
     @property
     def batch_size(self):
-        return factories.fake_batch_size
+        return 100
 
     @property
     def priority(self):
@@ -149,7 +149,7 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def filter_condition(self):
-        return factories.fake_filter_condition
+        return 'user=test_user'
 
     @property
     def avg_rows_per_second_cap(self):
@@ -157,11 +157,11 @@ class TestSchemaRepository(DBTestCase):
 
     @property
     def status(self):
-        return factories.fake_status
+        return 'SUCCESS'
 
     @property
     def status_value(self):
-        return factories.fake_status_value
+        return 3
 
     @pytest.fixture
     def refresh(self, source):
@@ -437,7 +437,14 @@ class TestSchemaRepository(DBTestCase):
         asserts.assert_equal_topic(new_topic, actual)
 
     def test_get_latest_topic_of_source_with_no_topic(self, namespace, source):
-        factories.SourceFactory.delete_topics(source.id)
+        # clear all the topics of the source
+        topics = session.query(models.Topic).filter(
+            models.Topic.source_id == source.id
+        ).all()
+        for topic in topics:
+            session.delete(topic)
+        session.flush()
+
         actual = schema_repo.get_latest_topic_of_namespace_source(
             namespace.name,
             source.name
@@ -476,7 +483,7 @@ class TestSchemaRepository(DBTestCase):
     ):
         with mock.patch(
             'schematizer.logic.schema_repository.'
-            'meta_attr_logic.get_meta_attributes_by_source',
+            'meta_attr_repo.get_meta_attributes_by_source',
             return_value=meta_attributes_for_source
         ), mock.patch(
             'schematizer.logic.schema_repository.'

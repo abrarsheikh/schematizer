@@ -53,7 +53,7 @@ class TestRegisterTables(DBTestCase):
             host=mysql_url.host or 'localhost',
             db=mysql_url.database,
             user=mysql_url.username or '',
-            port=int(mysql_url.port) or 3306,
+            port=int(mysql_url.port or 3306),
             passwd=mysql_url.password or ''
         ))
         return local.strpath
