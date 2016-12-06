@@ -120,8 +120,8 @@ def register_avro_schema_from_avro_json(
         status (AvroStatusEnum, optional): RW/R/Disabled
         base_schema_id (int, optional): Id of the Avro schema from which the
             new schema is derived from
-        docs_required (bool): whether to-be-registered schema must contain doc
-            strings
+        docs_required (bool, optional): whether to-be-registered schema must
+            contain doc strings
 
     Return:
         New created AvroSchema object.
@@ -178,8 +178,8 @@ def register_avro_schema_from_avro_json(
         if the_schema:
             return the_schema
 
-    # TODO: the table locking doesn't seem to work correctly. The race
-    # condition still occurs.
+    # TODO [DATAPIPE-1852]: the table locking doesn't seem to work correctly.
+    # The race condition still occurs.
     namespace = _get_namespace_or_create(namespace_name)
     _lock_namespace(namespace)
 
