@@ -256,9 +256,9 @@ def _get_source_id_and_topic_candidates(
 
 
 def _get_schema_if_exists(
-    new_schema_json, topic_id_candidates, source_id, lock=False
+    new_schema_json, topic_candidates, source_id, lock=False
 ):
-    if not topic_id_candidates:
+    if not topic_candidates:
         return None
 
     meta_attr_mappings = {
@@ -296,7 +296,7 @@ def _is_same_schema(existing_schema, new_schema_json, meta_attr_mappings):
     ).filter(
         SchemaMetaAttributeMapping.schema_id == existing_schema.id
     ).all()
-    return meta_attr_mappings == set(o[0] for o in schema_meta_attrs)
+    return meta_attr_mappings == {o[0] for o in schema_meta_attrs}
 
 
 def _are_meta_attr_mappings_same(schema_id, source_id):
