@@ -7,5 +7,6 @@ CREATE TABLE `topic` (
   `created_at` int(11) NOT NULL,
   `updated_at` int(11) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `topic` (`name`)
+  UNIQUE KEY `topic` (`name`),
+  KEY `source_id` (`source_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;

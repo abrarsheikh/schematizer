@@ -78,5 +78,10 @@ under the License.
       <append value=" AFTER contains_pii"/>
     </modifySql>
   </changeSet>
-
+  <changeSet author="clin" id="DATAPIPE-2108-1480993913">
+    <createIndex indexName="source_id" tableName="topic" unique="false">
+      <column name="source_id"/>
+    </createIndex>
+    <comment>[2016-12-05] Add index on source_id column.</comment>
+  </changeSet>
 </databaseChangeLog>
