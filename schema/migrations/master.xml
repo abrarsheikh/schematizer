@@ -23,6 +23,7 @@ under the License.
   <include file="consumer.xml"/>
   <include file="consumer_group.xml"/>
   <include file="consumer_group_data_source.xml"/>
+  <include file="data_source_target_mapping.xml"/>
   <include file="data_target.xml"/>
   <include file="meta_attribute_mapping_store.xml"/>
   <include file="namespace.xml"/>
