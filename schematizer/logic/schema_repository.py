@@ -271,16 +271,21 @@ def _get_schema_if_exists(
         if lock:
             _lock_topic_and_schemas(topic.id)
         latest_schema = get_latest_schema_by_topic_id(topic.id)
+        is_same_schema = _is_same_schema(
+            latest_schema, new_schema_json, meta_attr_mappings
+        )
         log.info(
-            'Registering schema {} on source id {}. '
-            'Checking same schema with latest {} on topic {}'.format(
+            '[{}] Registering schema {} on source id {}. '
+            'Checking same schema with latest {} on topic {}: {}'.format(
+                "Master" if lock else "Slave",
                 new_schema_json,
                 source_id,
                 latest_schema.id if latest_schema else 'None',
-                topic.name
+                topic.name,
+                is_same_schema
             )
         )
-        if _is_same_schema(latest_schema, new_schema_json, meta_attr_mappings):
+        if is_same_schema:
             return latest_schema
     return None
 
