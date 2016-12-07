@@ -26,11 +26,7 @@ class DataSourceTargetMapping(Base, BaseModel):
     data_target_id = Column(Integer, nullable=False)
 
     # Timestamp when the entry was created
-    created_at = build_time_column(default_now=True, nullable=False)
+    created_at = Column(Integer, nullable=False)
 
     # Timestamp when the entry was last updated
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
-    )
+    updated_at = Column(Integer, nullable=False)
