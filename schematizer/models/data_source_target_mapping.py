@@ -6,7 +6,6 @@ from sqlalchemy import Column
 from sqlalchemy import Integer
 from sqlalchemy import String
 
-from schematizer.models import build_time_column
 from schematizer.models.base_model import BaseModel
 from schematizer.models.database import Base
 
