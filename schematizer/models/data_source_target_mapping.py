@@ -19,11 +19,11 @@ class DataSourceTargetMapping(Base, BaseModel):
     # Id of the data source that maps to one or more data targets
     data_source_id = Column(Integer, nullable=False)
 
-    # Id of the data target that maps to one or more data sources 
-    data_target_id = Column(Integer, nullable=False)
-
     # The data source type (Namespace, Source, Schema)
     data_source_type = Column(String, nullable=False)
+
+    # Id of the data target that maps to one or more data sources
+    data_target_id = Column(Integer, nullable=False)
 
     # Timestamp when the entry was created
     created_at = build_time_column(default_now=True, nullable=False)
