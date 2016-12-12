@@ -54,7 +54,10 @@ def get_schema_by_id(request):
 )
 @transform_api_response()
 def get_schemas_created_after(request):
-    created_after_timestamp = int(request.matchdict.get('created_after', 0))
+    created_after_param = request.matchdict.get('created_after')
+    created_after_timestamp = (
+        int(created_after_param) if created_after_param is not None else None
+    )
     page_info = requests_v1.get_pagination_info(request.matchdict)
     include_disabled = request.matchdict.get('include_disabled', False)
     schemas = schema_repository.get_schemas_by_criteria(
