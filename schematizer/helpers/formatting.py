@@ -16,6 +16,12 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from datetime import datetime
+
 
 def _format_datetime(datetime):
     return datetime.isoformat() + 'Z'
+
+
+def _format_timestamp(timestamp):
+    return datetime.utcfromtimestamp(timestamp).isoformat() + 'Z'

@@ -25,6 +25,7 @@ from data_pipeline_avro_util.data_pipeline.avro_meta_data \
     import AvroMetaDataKeys
 
 from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 
 
 def get_namespace_response_from_namespace(namespace):
@@ -74,8 +75,8 @@ def get_schema_response_from_avro_schema(avro_schema):
             []
         ),
         'note': get_note_response_from_note(avro_schema.note),
-        'created_at': _format_datetime(avro_schema.created_at),
-        'updated_at': _format_datetime(avro_schema.updated_at)
+        'created_at': _format_timestamp(avro_schema.created_at),
+        'updated_at': _format_timestamp(avro_schema.updated_at)
     }
     # Since swagger cannot take null or None value for integer type,
     # here we just simply strip out this field.

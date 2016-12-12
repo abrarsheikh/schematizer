@@ -16,8 +16,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from datetime import datetime
-from datetime import timedelta
+import time
 
 import mock
 import pytest
@@ -66,78 +65,68 @@ class TestGetSchemaByID(ApiTestBase):
         assert actual == expected
 
 
-class TestGetSchemaAfterDate(ApiTestBase):
+class TestGetSchemasByCriteria(ApiTestBase):
 
-    def test_get_schemas_filter_by_created_timestamp(
-        self,
-        mock_request,
-        biz_schema
+    # TODO [clin|DATAPIPE-2024] add more tests
+    @pytest.fixture
+    def created_timestamp(self):
+        return int(time.time())
+
+    @pytest.fixture
+    def disabled_schema_0(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp,
+            status=models.AvroSchemaStatus.DISABLED
+        )
+
+    @pytest.fixture
+    def ro_schema_1(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp + 1
+        )
+
+    @pytest.fixture
+    def rw_schema_2(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp + 2
+        )
+
+    def test_get_schemas_created_after_given_timestamp(
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that filtering with a later date returns less schemas than
-        filtering with an earlier date.
-        """
-        biz_created_at = biz_schema.created_at - timedelta(100, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {'created_after': creation_timestamp}
-        schemas_early = schema_views.get_schemas_created_after(mock_request)
+        mock_request.matchdict = {
+            'created_after': disabled_schema_0.created_at
+        }
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [
+            self.get_expected_schema_resp(schema.id) for schema in
+            [ro_schema_1, rw_schema_2]
+        ]
+        assert actual == expected
 
-        biz_created_at = biz_schema.created_at + timedelta(1, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {'created_after': creation_timestamp}
-        schemas_later = schema_views.get_schemas_created_after(mock_request)
-        assert len(schemas_early) > len(schemas_later)
+        mock_request.matchdict = {'created_after': ro_schema_1.created_at + 1}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(rw_schema_2.id)]
+        assert actual == expected
 
     def test_limit_schemas_by_count(
-        self,
-        mock_request,
-        biz_schema,
-        biz_pkey_schema
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that schemas are filtered by count. """
-        biz_created_at = biz_schema.created_at - timedelta(10, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {
-            'created_after': creation_timestamp,
-            'count': 1
-        }
-
-        # Without the count param, length would be 2
-        assert len(schema_views.get_schemas_created_after(mock_request)) == 1
+        mock_request.matchdict = {'created_after': 0, 'count': 1}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(ro_schema_1.id)]
+        assert actual == expected
 
     def test_limit_schemas_by_min_id(
-        self,
-        mock_request,
-        biz_schema,
-        biz_pkey_schema
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that filtering by min_id returns all the schemas which have
-        id equal to or greater than min_id.
-        """
-        sorted_schemas = sorted(
-            [biz_schema, biz_pkey_schema],
-            key=lambda schema: schema.id
-        )
-        schema_created_at = sorted_schemas[0].created_at - timedelta(10, 0)
-        creation_timestamp = (schema_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-
-        for delta in xrange(2):
-            min_id = sorted_schemas[0].id + delta
-            mock_request.params = {
-                'created_after': creation_timestamp,
-                'min_id': min_id
-            }
-            actual_schemas = schema_views.get_schemas_created_after(
-                mock_request
-            )
-            expected_schemas = [
-                self.get_expected_schema_resp(schema.id)
-                for schema in sorted_schemas if schema.id >= min_id
-            ]
-            assert actual_schemas == expected_schemas
+        mock_request.matchdict = {'created_after': 0, 'min_id': rw_schema_2.id}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(rw_schema_2.id)]
+        assert actual == expected
 
 
 class RegisterSchemaTestBase(ApiTestBase):

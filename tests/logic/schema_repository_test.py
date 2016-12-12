@@ -232,13 +232,6 @@ class TestSchemaRepository(DBTestCase):
             created_at=self.some_datetime + datetime.timedelta(seconds=6)
         )
 
-    @pytest.fixture
-    def sorted_schemas(self, rw_schema, another_rw_schema, user_schema):
-        return sorted(
-            [rw_schema, another_rw_schema, user_schema],
-            key=lambda schema: schema.id
-        )
-
     @property
     def rw_transformed_schema_json(self):
         schema_json = copy.deepcopy(self.rw_schema_json)
@@ -605,79 +598,6 @@ class TestSchemaRepository(DBTestCase):
             expected_list=[rw_schema],
             assert_func=asserts.assert_equal_avro_schema
         )
-
-    def test_get_schemas_after_given_timestamp_excluding_disabled_schemas(
-        self,
-        sorted_schemas,
-        disabled_schema
-    ):
-        expected = sorted_schemas[1:]
-        after_dt = expected[0].created_at
-        actual = schema_repo.get_schemas_created_after(created_after=after_dt)
-        asserts.assert_equal_entity_list(
-            actual_list=actual,
-            expected_list=expected,
-            assert_func=asserts.assert_equal_avro_schema
-        )
-
-    def test_get_schemas_after_given_timestamp_including_disabled_schemas(
-        self,
-        rw_schema,
-        another_rw_schema,
-        user_schema,
-        disabled_schema
-    ):
-        expected = sorted(
-            [rw_schema, disabled_schema, another_rw_schema, user_schema],
-            key=lambda schema: schema.id
-        )
-        after_dt = expected[0].created_at
-        actual = schema_repo.get_schemas_created_after(
-            created_after=after_dt,
-            include_disabled=True
-        )
-        asserts.assert_equal_entity_list(
-            actual_list=actual,
-            expected_list=expected,
-            assert_func=asserts.assert_equal_avro_schema
-        )
-
-    def test_get_schemas_filter_by_count(
-        self,
-        sorted_schemas
-    ):
-        expected = [sorted_schemas[1]]
-        after_dt = expected[0].created_at
-        actual = schema_repo.get_schemas_created_after(
-            created_after=after_dt,
-            page_info=PageInfo(count=1, min_id=None)
-        )
-        asserts.assert_equal_entity_list(
-            actual_list=actual,
-            expected_list=expected,
-            assert_func=asserts.assert_equal_avro_schema
-        )
-
-    def test_get_schemas_filter_by_min_id(self, sorted_schemas):
-        min_id = sorted_schemas[1].id
-        created_dt = sorted_schemas[0].created_at
-        expected = [schema for schema in sorted_schemas if schema.id >= min_id]
-        actual = schema_repo.get_schemas_created_after(
-            created_after=created_dt,
-            page_info=PageInfo(count=None, min_id=min_id)
-        )
-        asserts.assert_equal_entity_list(
-            actual_list=actual,
-            expected_list=expected,
-            assert_func=asserts.assert_equal_avro_schema
-        )
-
-    def test_no_newer_schema(self, sorted_schemas):
-        last_schema = sorted_schemas[-1]
-        after_dt = last_schema.created_at + datetime.timedelta(seconds=1)
-
-        actual = schema_repo.get_schemas_created_after(created_after=after_dt)
-        assert actual == []
 
     def test_get_schemas_by_topic_id_including_disabled(
         self,

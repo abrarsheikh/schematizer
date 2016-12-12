@@ -54,11 +54,13 @@ def get_schema_by_id(request):
 )
 @transform_api_response()
 def get_schemas_created_after(request):
-    req = requests_v1.GetSchemasRequest(request.params)
-    schemas = schema_repository.get_schemas_created_after(
-        created_after=req.created_after_datetime,
-        page_info=req.page_info,
-        include_disabled=req.include_disabled
+    created_after_timestamp = int(request.matchdict.get('created_after', 0))
+    page_info = requests_v1.get_pagination_info(request.matchdict)
+    include_disabled = request.matchdict.get('include_disabled', False)
+    schemas = schema_repository.get_schemas_by_criteria(
+        created_after=created_after_timestamp,
+        page_info=page_info,
+        include_disabled=include_disabled
     )
     return [responses_v1.get_schema_response_from_avro_schema(avro_schema)
             for avro_schema in schemas]
