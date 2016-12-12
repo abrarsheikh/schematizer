@@ -97,7 +97,7 @@ class TestGetSchemasByCriteria(ApiTestBase):
     def test_get_schemas_created_after_given_timestamp(
         self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        mock_request.matchdict = {
+        mock_request.params = {
             'created_after': disabled_schema_0.created_at
         }
         actual = schema_views.get_schemas_created_after(mock_request)
@@ -107,7 +107,7 @@ class TestGetSchemasByCriteria(ApiTestBase):
         ]
         assert actual == expected
 
-        mock_request.matchdict = {'created_after': ro_schema_1.created_at + 1}
+        mock_request.params = {'created_after': ro_schema_1.created_at + 1}
         actual = schema_views.get_schemas_created_after(mock_request)
         expected = [self.get_expected_schema_resp(rw_schema_2.id)]
         assert actual == expected
@@ -115,7 +115,7 @@ class TestGetSchemasByCriteria(ApiTestBase):
     def test_limit_schemas_by_count(
         self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        mock_request.matchdict = {'created_after': 0, 'count': 1}
+        mock_request.params = {'created_after': 0, 'count': 1}
         actual = schema_views.get_schemas_created_after(mock_request)
         expected = [self.get_expected_schema_resp(ro_schema_1.id)]
         assert actual == expected
@@ -123,7 +123,7 @@ class TestGetSchemasByCriteria(ApiTestBase):
     def test_limit_schemas_by_min_id(
         self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        mock_request.matchdict = {'created_after': 0, 'min_id': rw_schema_2.id}
+        mock_request.params = {'created_after': 0, 'min_id': rw_schema_2.id}
         actual = schema_views.get_schemas_created_after(mock_request)
         expected = [self.get_expected_schema_resp(rw_schema_2.id)]
         assert actual == expected
