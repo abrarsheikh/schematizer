@@ -46,6 +46,7 @@ class TestGetSchemaByID(ApiTestBase):
         mock_request.matchdict = {'schema_id': str(biz_schema.id)}
         actual = schema_views.get_schema_by_id(mock_request)
         expected = self.get_expected_schema_resp(biz_schema.id)
+        assert mock_request.response.cache_control == 'max-age=86400'
         assert actual == expected
 
     def test_get_schema_with_base_schema(self, mock_request, biz_schema):

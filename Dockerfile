@@ -10,7 +10,8 @@ RUN     apt-get update && \
             python-virtualenv \
             python-pip \
             curl \
-            git
+            git \
+            varnish
 
 # uwsgi deps
 RUN     apt-get update && apt-get install -y libyaml-0-2 libxml2 libpython2.7 libmysqlclient-dev libssl0.9.8
@@ -33,5 +34,5 @@ ADD     . /code
 WORKDIR /code
 ENV     BASEPATH /code
 USER    nobody
-CMD     PORT=8888 /code/virtualenv_run/bin/python /code/serviceinitd/internal_schematizer start-no-daemon
+CMD     varnishd -n /tmp/varnish -a :8888 -f /code/varnish.vcl -s malloc,50M && /code/virtualenv_run/bin/python /code/serviceinitd/internal_schematizer start-no-daemon
 EXPOSE  8888
