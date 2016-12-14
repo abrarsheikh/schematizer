@@ -877,7 +877,7 @@ def get_schemas_by_criteria(
             timestamp (inclusive) if specified
         included_disabled(Optional[bool]): whether to include disabled schemas
         page_info(Optional[:class:schematizer.models.page_info.PageInfo]):
-            limits the topics to count and those with id greater than or
+            limits the schemas to count and those with id greater than or
             equal to min_id.
 
     Returns:
