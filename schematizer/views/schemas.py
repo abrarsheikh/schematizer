@@ -44,6 +44,7 @@ def get_schema_by_id(request):
     avro_schema = schema_repository.get_schema_by_id(int(schema_id))
     if avro_schema is None:
         raise exceptions_v1.schema_not_found_exception()
+    request.response.cache_control = 'max-age=86400'
     return responses_v1.get_schema_response_from_avro_schema(avro_schema)
 
 
