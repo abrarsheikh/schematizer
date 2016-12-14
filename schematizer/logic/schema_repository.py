@@ -873,8 +873,8 @@ def get_schemas_by_criteria(
     Args:
         namespace(Optional[str]): get schemas of given namespace if specified
         source(Optional[str]): get schemas of given source name if specified
-        created_after(Optional[datetime]): get schemas created after given utc
-            datetime (inclusive) if specified
+        created_after(Optional[int]): get schemas created after given unix
+            timestamp (inclusive) if specified
         included_disabled(Optional[bool]): whether to include disabled schemas
         page_info(Optional[:class:schematizer.models.page_info.PageInfo]):
             limits the topics to count and those with id greater than or
