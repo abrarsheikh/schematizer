@@ -22,6 +22,7 @@ import simplejson
 from avro import schema
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import Text
 from sqlalchemy.orm import relationship
@@ -35,7 +36,6 @@ from schematizer.models.database import session
 from schematizer.models.note import Note
 from schematizer.models.note import ReferenceTypeEnum
 from schematizer.models.producer import Producer
-from schematizer.models.types.time import build_time_column
 
 
 class AvroSchemaStatus(object):
@@ -56,11 +56,7 @@ class AvroSchema(Base, BaseModel):
 
     # Id of the topic that the schema is associated to.
     # It is a foreign key to Topic table.
-    topic_id = Column(
-        Integer,
-        ForeignKey('topic.id'),
-        nullable=False
-    )
+    topic_id = Column(Integer, ForeignKey('topic.id'), nullable=False)
 
     # The schema_id where this schema is derived from.
     base_schema_id = Column(Integer, ForeignKey('avro_schema.id'))
@@ -78,16 +74,14 @@ class AvroSchema(Base, BaseModel):
     )
 
     # Timestamp when the entry is created
-    created_at = build_time_column(
-        default_now=True,
-        nullable=False
-    )
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
     # Timestamp when the entry is last updated
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )
 
     producers = relationship(Producer, backref="avro_schema")

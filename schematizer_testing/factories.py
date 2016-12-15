@@ -107,9 +107,9 @@ def get_or_create_topic(topic_name, namespace_name=None, source_name=None):
 def create_avro_schema(
     schema_json,
     schema_elements=None,
-    topic_name=None,
-    namespace=None,
-    source=None,
+    topic_name='default_topic_name',
+    namespace='default_namespace',
+    source="default_source",
     status=models.AvroSchemaStatus.READ_AND_WRITE,
     base_schema_id=None,
     created_at=None

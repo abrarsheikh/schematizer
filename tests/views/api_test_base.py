@@ -22,6 +22,7 @@ from pyramid import httpexceptions
 
 from schematizer import models
 from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 from schematizer.models.meta_attribute_mapping_store import (
     MetaAttributeMappingStore)
 from schematizer_testing import utils
@@ -76,8 +77,8 @@ class ApiTestBase(DBTestCase):
             'topic': self.get_expected_topic_resp(avro_schema.topic_id),
             'status': models.AvroSchemaStatus.READ_AND_WRITE,
             'primary_keys': [],
-            'created_at': _format_datetime(avro_schema.created_at),
-            'updated_at': _format_datetime(avro_schema.updated_at)
+            'created_at': _format_timestamp(avro_schema.created_at),
+            'updated_at': _format_timestamp(avro_schema.updated_at)
         }
         if overrides:
             expected.update(overrides)
