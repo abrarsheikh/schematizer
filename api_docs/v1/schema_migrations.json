@@ -20,6 +20,10 @@
                     ],
                     "responseMessages": [
                         {
+                            "code": 400,
+                            "message": "Invalid request"
+                        },
+                        {
                             "code": 422,
                             "message": "Invalid schema"
                         },

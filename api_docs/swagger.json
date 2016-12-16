@@ -1921,6 +1921,9 @@
                             "type": "array"
                         }
                     },
+                    "400": {
+                        "description": "Invalid request"
+                    },
                     "422": {
                         "description": "Invalid schema"
                     },
