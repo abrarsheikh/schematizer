@@ -24,7 +24,7 @@ import simplejson
 
 from schematizer import models
 from schematizer.api.exceptions import exceptions_v1
-from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views
 from schematizer_testing import factories
 from tests.views.api_test_base import ApiTestBase
@@ -479,12 +479,8 @@ class TestGetSchemaElements(ApiTestBase):
                     'element_type': element.element_type,
                     'key': element.key,
                     'doc': element.doc,
-                    'created_at': _format_datetime(
-                        element.created_at
-                    ),
-                    'updated_at': _format_datetime(
-                        element.updated_at
-                    )
+                    'created_at': _format_timestamp(element.created_at),
+                    'updated_at': _format_timestamp(element.updated_at)
                 }
             )
 
