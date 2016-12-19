@@ -16,8 +16,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import datetime
-
 import pytest
 
 from schematizer import models
@@ -277,7 +275,7 @@ class TestGetTopicsByDataTargetId(DBTestCase):
         dw_consumer_group_source_data_src
     ):
         # set the creation timestamp of foo_topic 10 seconds behind biz_topic
-        new_created_at = biz_topic.created_at + datetime.timedelta(seconds=10)
+        new_created_at = biz_topic.created_at + 10
         session.query(models.Topic).filter(
             models.Topic.id == foo_topic.id
         ).update(
@@ -286,7 +284,7 @@ class TestGetTopicsByDataTargetId(DBTestCase):
 
         actual = reg_repo.get_topics_by_data_target_id(
             dw_data_target.id,
-            created_after=new_created_at + datetime.timedelta(seconds=-1)
+            created_after=new_created_at - 1
         )
         asserts.assert_equal_entity_list(
             actual_list=actual,

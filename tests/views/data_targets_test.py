@@ -17,7 +17,6 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import copy
-from datetime import datetime
 
 import pytest
 
@@ -254,17 +253,13 @@ class TestGetTopicsByDataTargetId(ApiTestBase):
         dw_data_target,
         dw_consumer_group_source_data_src
     ):
-        epoch_create_time = (biz_topic.created_at -
-                             datetime.utcfromtimestamp(0)).total_seconds()
         mock_request.matchdict = {'data_target_id': str(dw_data_target.id)}
-        mock_request.params = {
-            'created_after': epoch_create_time
-        }
+        mock_request.params = {'created_after': biz_topic.created_at}
         actual = data_target_views.get_topics_by_data_target_id(mock_request)
         expected = [self.get_expected_topic_resp(biz_topic.id)]
         assert actual == expected
 
-        five_sec_after_create_time = epoch_create_time + 5
+        five_sec_after_create_time = biz_topic.created_at + 5
         mock_request.params = {'created_after': five_sec_after_create_time}
         actual = data_target_views.get_topics_by_data_target_id(mock_request)
         assert actual == []

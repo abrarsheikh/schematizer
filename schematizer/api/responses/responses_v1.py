@@ -59,8 +59,8 @@ def get_topic_response_from_topic(topic):
         'contains_pii': topic.contains_pii,
         'cluster_type': topic.cluster_type,
         'primary_keys': topic.primary_keys,
-        'created_at': _format_datetime(topic.created_at),
-        'updated_at': _format_datetime(topic.updated_at)
+        'created_at': _format_timestamp(topic.created_at),
+        'updated_at': _format_timestamp(topic.updated_at)
     }
 
 

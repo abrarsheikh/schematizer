@@ -231,15 +231,6 @@ class CreateConsumerGroupRequest(RequestBase):
         self.group_name = group_name
 
 
-class GetTopicsByDataTargetIdRequest(RequestBase):
-
-    def __init__(self, query_params):
-        super(GetTopicsByDataTargetIdRequest, self).__init__()
-        self.created_after, self.created_after_datetime = self._get_datetime(
-            query_params.get('created_after')
-        )
-
-
 class CreateConsumerGroupDataSourceRequest(RequestBase):
 
     def __init__(self, data_source_type, data_source_id):
