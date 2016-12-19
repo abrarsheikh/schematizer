@@ -18,7 +18,6 @@ from __future__ import unicode_literals
 
 import re
 import uuid
-from contextlib import contextmanager
 
 import simplejson
 from sqlalchemy import desc
@@ -145,24 +144,28 @@ def register_avro_schema_from_avro_json(
     # then performs the same checking in the master db. The expectation is
     # checking schema in slave db should catch most of the cases when the
     # schema already exists.
-    # The `_switch_to_read_only_connection` context manager returns a flag
-    # indicating whether the connection is actually switched to read-only db.
-    # This flag is used to determine whether the flow should check the existing
-    # schema again in the master db (read-write) for false-negative case.
+    # The `_switch_to_read_only_connection` returns the read-only connection
+    # if it is supported, and `None` if not. If the read-only connection is
+    # available, the logic flow checks the slave db (read-only) first, and will
+    # check the existing schema again in the master db (read-write) for
+    # false-negative case. If the read-only db is not supported, the logic flow
+    # will check in the regular db directly.
     # TODO [clin|DATAPIPE-2165] nice to have test to verify right db is used.
-    with _switch_to_read_only_connection() as is_switched:
-        source_id, topic_candidates = _get_source_id_and_topic_candidates(
-            namespace_name,
-            source_name,
-            base_schema_id,
-            contains_pii,
-            cluster_type
-        )
-        the_schema = _get_schema_if_exists(
-            avro_schema_json, topic_candidates, source_id
-        )
-        if the_schema:
-            return the_schema
+    read_only_conn = _switch_to_read_only_connection()
+    if read_only_conn:
+        with read_only_conn:
+            source_id, topic_candidates = _get_source_id_and_topic_candidates(
+                namespace_name,
+                source_name,
+                base_schema_id,
+                contains_pii,
+                cluster_type
+            )
+            the_schema = _get_schema_if_exists(
+                avro_schema_json, topic_candidates, source_id
+            )
+            if the_schema:
+                return the_schema
 
     # TODO [DATAPIPE-1852]: the table locking doesn't seem to work correctly.
     # The race condition still occurs.
@@ -176,22 +179,20 @@ def register_avro_schema_from_avro_json(
     )
     _lock_source(source)
 
-    # If the connection is not switched to read-only one above, it means there
-    # may be only one db and it doesn't need to perform the checking again.
-    # This usually happens if yelp_conn is not available.
-    if is_switched:
-        source_id, topic_candidates = _get_source_id_and_topic_candidates(
-            namespace_name,
-            source_name,
-            base_schema_id,
-            contains_pii,
-            cluster_type
-        )
-        the_schema = _get_schema_if_exists(
-            avro_schema_json, topic_candidates, source_id, lock=True
-        )
-        if the_schema:
-            return the_schema
+    # If the connection is switched to read-only one above, it still needs to
+    # checks again in the master db to catch false-negative cases.
+    source_id, topic_candidates = _get_source_id_and_topic_candidates(
+        namespace_name,
+        source_name,
+        base_schema_id,
+        contains_pii,
+        cluster_type
+    )
+    the_schema = _get_schema_if_exists(
+        avro_schema_json, topic_candidates, source_id, lock=True
+    )
+    if the_schema:
+        return the_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_candidate_topic_compatible(
@@ -220,13 +221,11 @@ def _strip_if_not_none(original_str):
     return original_str.strip()
 
 
-@contextmanager
 def _switch_to_read_only_connection():
     try:
-        with session.slave_connection_set:
-            yield True
+        return session.slave_connection_set
     except AttributeError:
-        yield False
+        return None
 
 
 def _get_source_id_and_topic_candidates(
