@@ -41,8 +41,8 @@ class ApiTestBase(DBTestCase):
         return {
             'namespace_id': namespace.id,
             'name': namespace.name,
-            'created_at': _format_datetime(namespace.created_at),
-            'updated_at': _format_datetime(namespace.updated_at)
+            'created_at': _format_timestamp(namespace.created_at),
+            'updated_at': _format_timestamp(namespace.updated_at)
         }
 
     def get_expected_src_resp(self, source_id):

@@ -31,6 +31,7 @@ from schematizer.api.decorators import handle_view_exception
 from schematizer.api.decorators import log_api
 from schematizer.api.decorators import transform_api_response
 from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 from tests.models.testing_db import DBTestCase
 
 
@@ -82,8 +83,8 @@ class TestTransformResponseDecorator(DBTestCase):
         return {
             'namespace_id': namespace.id,
             'name': namespace.name,
-            'created_at': _format_datetime(namespace.created_at),
-            'updated_at': _format_datetime(namespace.updated_at)
+            'created_at': _format_timestamp(namespace.created_at),
+            'updated_at': _format_timestamp(namespace.updated_at)
         }
 
     @pytest.fixture
