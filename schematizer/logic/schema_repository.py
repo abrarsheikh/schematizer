@@ -145,9 +145,11 @@ def register_avro_schema_from_avro_json(
     # checking schema in slave db should catch most of the cases when the
     # schema already exists.
     # The `_switch_to_read_only_connection` returns the read-only connection
-    # if it is supported, and `None` if not. If the read-only connection is not
-    # available, the logic flow should check the existing schema again in the
-    # master db (read-write) for false-negative case.
+    # if it is supported, and `None` if not. If the read-only connection is
+    # available, the logic flow checks the slave db (read-only) first, and will
+    # check the existing schema again in the master db (read-write) for
+    # false-negative case. If the read-only db is not supported, the logic flow
+    # will check in the regular db directly.
     # TODO [clin|DATAPIPE-2165] nice to have test to verify right db is used.
     read_only_conn = _switch_to_read_only_connection()
     if read_only_conn:
@@ -177,22 +179,20 @@ def register_avro_schema_from_avro_json(
     )
     _lock_source(source)
 
-    # If the connection is not switched to read-only one above, it means there
-    # may be only one db and it doesn't need to perform the checking again.
-    # This usually happens if yelp_conn is not available.
-    if read_only_conn is None:
-        source_id, topic_candidates = _get_source_id_and_topic_candidates(
-            namespace_name,
-            source_name,
-            base_schema_id,
-            contains_pii,
-            cluster_type
-        )
-        the_schema = _get_schema_if_exists(
-            avro_schema_json, topic_candidates, source_id, lock=True
-        )
-        if the_schema:
-            return the_schema
+    # If the connection is switched to read-only one above, it still needs to
+    # checks again in the master db to catch false-negative cases.
+    source_id, topic_candidates = _get_source_id_and_topic_candidates(
+        namespace_name,
+        source_name,
+        base_schema_id,
+        contains_pii,
+        cluster_type
+    )
+    the_schema = _get_schema_if_exists(
+        avro_schema_json, topic_candidates, source_id, lock=True
+    )
+    if the_schema:
+        return the_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
     if not _is_candidate_topic_compatible(
