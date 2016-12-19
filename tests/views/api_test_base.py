@@ -52,8 +52,8 @@ class ApiTestBase(DBTestCase):
             'namespace': self.get_expected_namespace_resp(src.namespace.id),
             'name': src.name,
             'owner_email': src.owner_email,
-            'created_at': _format_datetime(src.created_at),
-            'updated_at': _format_datetime(src.updated_at)
+            'created_at': _format_timestamp(src.created_at),
+            'updated_at': _format_timestamp(src.updated_at)
         }
 
     def get_expected_topic_resp(self, topic_id):

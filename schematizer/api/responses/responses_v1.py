@@ -46,8 +46,8 @@ def get_source_response_from_source(source):
         'category': (
             None if source.category is None else source.category.category
         ),
-        'created_at': _format_datetime(source.created_at),
-        'updated_at': _format_datetime(source.updated_at)
+        'created_at': _format_timestamp(source.created_at),
+        'updated_at': _format_timestamp(source.updated_at)
     }
 
 
