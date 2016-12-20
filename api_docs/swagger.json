@@ -1892,7 +1892,7 @@
             }
         },
         "/v1/schema_migrations": {
-            "get": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],

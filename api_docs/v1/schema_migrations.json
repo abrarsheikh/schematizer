@@ -8,7 +8,7 @@
                     "items": {
                         "type": "string"
                     },
-                    "method": "GET",
+                    "method": "POST",
                     "nickname": "get_schema_migration",
                     "parameters": [
                         {
