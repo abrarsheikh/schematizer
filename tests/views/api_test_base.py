@@ -41,8 +41,8 @@ class ApiTestBase(DBTestCase):
         return {
             'namespace_id': namespace.id,
             'name': namespace.name,
-            'created_at': _format_datetime(namespace.created_at),
-            'updated_at': _format_datetime(namespace.updated_at)
+            'created_at': _format_timestamp(namespace.created_at),
+            'updated_at': _format_timestamp(namespace.updated_at)
         }
 
     def get_expected_src_resp(self, source_id):
@@ -52,8 +52,8 @@ class ApiTestBase(DBTestCase):
             'namespace': self.get_expected_namespace_resp(src.namespace.id),
             'name': src.name,
             'owner_email': src.owner_email,
-            'created_at': _format_datetime(src.created_at),
-            'updated_at': _format_datetime(src.updated_at)
+            'created_at': _format_timestamp(src.created_at),
+            'updated_at': _format_timestamp(src.updated_at)
         }
 
     def get_expected_topic_resp(self, topic_id):
@@ -65,8 +65,8 @@ class ApiTestBase(DBTestCase):
             'contains_pii': False,
             'cluster_type': topic.cluster_type,
             'primary_keys': topic.primary_keys,
-            'created_at': _format_datetime(topic.created_at),
-            'updated_at': _format_datetime(topic.updated_at),
+            'created_at': _format_timestamp(topic.created_at),
+            'updated_at': _format_timestamp(topic.updated_at),
         }
 
     def get_expected_schema_resp(self, schema_id, **overrides):

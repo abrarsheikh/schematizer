@@ -30,7 +30,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from schematizer.api.decorators import handle_view_exception
 from schematizer.api.decorators import log_api
 from schematizer.api.decorators import transform_api_response
-from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 from tests.models.testing_db import DBTestCase
 
 
@@ -74,16 +74,16 @@ class TestTransformResponseDecorator(DBTestCase):
             'namespace': self._get_namespace_resp(biz_source.namespace),
             'name': biz_source.name,
             'owner_email': biz_source.owner_email,
-            'created_at': _format_datetime(biz_source.created_at),
-            'updated_at': _format_datetime(biz_source.updated_at)
+            'created_at': _format_timestamp(biz_source.created_at),
+            'updated_at': _format_timestamp(biz_source.updated_at)
         }
 
     def _get_namespace_resp(self, namespace):
         return {
             'namespace_id': namespace.id,
             'name': namespace.name,
-            'created_at': _format_datetime(namespace.created_at),
-            'updated_at': _format_datetime(namespace.updated_at)
+            'created_at': _format_timestamp(namespace.created_at),
+            'updated_at': _format_timestamp(namespace.updated_at)
         }
 
     @pytest.fixture
