@@ -32,8 +32,8 @@ def get_namespace_response_from_namespace(namespace):
     return {
         'namespace_id': namespace.id,
         'name': namespace.name,
-        'created_at': _format_datetime(namespace.created_at),
-        'updated_at': _format_datetime(namespace.updated_at)
+        'created_at': _format_timestamp(namespace.created_at),
+        'updated_at': _format_timestamp(namespace.updated_at)
     }
 
 
@@ -46,8 +46,8 @@ def get_source_response_from_source(source):
         'category': (
             None if source.category is None else source.category.category
         ),
-        'created_at': _format_datetime(source.created_at),
-        'updated_at': _format_datetime(source.updated_at)
+        'created_at': _format_timestamp(source.created_at),
+        'updated_at': _format_timestamp(source.updated_at)
     }
 
 
@@ -59,8 +59,8 @@ def get_topic_response_from_topic(topic):
         'contains_pii': topic.contains_pii,
         'cluster_type': topic.cluster_type,
         'primary_keys': topic.primary_keys,
-        'created_at': _format_datetime(topic.created_at),
-        'updated_at': _format_datetime(topic.updated_at)
+        'created_at': _format_timestamp(topic.created_at),
+        'updated_at': _format_timestamp(topic.updated_at)
     }
 
 

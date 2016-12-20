@@ -16,8 +16,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from datetime import datetime
-
 import pytest
 
 from schematizer.api.exceptions import exceptions_v1 as exc_v1
@@ -123,8 +121,7 @@ class TestGetTopicsByCriteria(ApiTestBase):
     def test_filter_by_namespace_and_time(self, mock_request, biz_topic):
         mock_request.params = {
             'namespace': biz_topic.source.namespace.name,
-            'created_after': (biz_topic.created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
+            'created_after': biz_topic.created_at
         }
         actual = topic_views.get_topics_by_criteria(mock_request)
         expected = [self.get_expected_topic_resp(biz_topic.id)]

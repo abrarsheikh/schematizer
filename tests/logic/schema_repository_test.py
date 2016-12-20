@@ -1554,7 +1554,7 @@ class TestGetTopicsByCriteria(DBTestCase):
 
     def test_no_newer_topic(self, sorted_topics):
         last_topic = sorted_topics[-1]
-        after_dt = last_topic.created_at + datetime.timedelta(seconds=1)
+        after_dt = last_topic.created_at + 1
         actual = schema_repo.get_topics_by_criteria(created_after=after_dt)
         assert actual == []
 

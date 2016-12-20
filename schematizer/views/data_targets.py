@@ -132,11 +132,14 @@ def create_consumer_group(request):
 @transform_api_response()
 def get_topics_by_data_target_id(request):
     data_target_id = int(request.matchdict.get('data_target_id'))
-    req = requests_v1.GetTopicsByDataTargetIdRequest(request.params)
+    created_after_param = request.params.get('created_after')
+    created_after = (
+        int(created_after_param) if created_after_param is not None else None
+    )
     try:
         topics = reg_repo.get_topics_by_data_target_id(
             data_target_id,
-            created_after=req.created_after_datetime
+            created_after=created_after
         )
         return [resp_v1.get_topic_response_from_topic(t) for t in topics]
     except sch_exc.EntityNotFoundError as e:
