@@ -273,7 +273,7 @@ def routes(config):
     config.add_route(
         'api.v1.get_schema_migration',
         '/v1/schema_migrations',
-        request_method="GET"
+        request_method="POST"
     )
 
     config.add_route(
