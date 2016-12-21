@@ -132,10 +132,6 @@ class TestSchemaRepository(DBTestCase):
         )
 
     @property
-    def source_id(self):
-        return factories.fake_default_id
-
-    @property
     def offset(self):
         return 0
 
@@ -741,24 +737,17 @@ class TestSchemaRepository(DBTestCase):
             )
 
     def test_create_refresh(self):
-        actual_refresh = schema_repo.create_refresh(
-            self.source_id,
-            self.offset,
-            self.batch_size,
-            self.priority,
-            self.filter_condition,
-            self.avg_rows_per_second_cap
-        )
-        expected_refresh = models.Refresh(
-            source_id=self.source_id,
-            status=models.RefreshStatus.NOT_STARTED.value,
+        source = factories.create_source('foo_namespace', 'bar_source')
+        actual = schema_repo.create_refresh(
+            source_id=source.id,
             offset=self.offset,
             batch_size=self.batch_size,
             priority=self.priority,
             filter_condition=self.filter_condition,
             avg_rows_per_second_cap=self.avg_rows_per_second_cap
         )
-        self.assert_equal_refresh_partial(expected_refresh, actual_refresh)
+        expected = utils.get_entity_by_id(models.Refresh, actual.id)
+        asserts.assert_equal_refresh(actual, expected)
 
     def test_get_refresh_by_id(self, refresh):
         actual_refresh = schema_repo.get_refresh_by_id(refresh.id)
@@ -1329,46 +1318,17 @@ class TestByCriteria(DBTestCase):
     def some_datetime(self):
         return datetime.datetime(2015, 3, 1, 10, 23, 5, 254)
 
-    @property
-    def avg_rows_per_second_cap(self):
-        return 1000
-
-    @property
-    def priority(self):
-        return 50
-
     @pytest.fixture
     def biz_refresh(self, biz_source):
-        return factories.create_refresh(
-            source_id=biz_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=biz_source.id)
 
     @pytest.fixture
     def user_refresh(self, user_source):
-        return factories.create_refresh(
-            source_id=user_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=user_source.id)
 
     @pytest.fixture
     def cta_refresh(self, cta_source):
-        return factories.create_refresh(
-            source_id=cta_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=cta_source.id)
 
     @pytest.fixture
     def biz_topic(self, biz_source):

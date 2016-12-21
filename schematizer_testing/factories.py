@@ -31,22 +31,6 @@ from schematizer.models.source import Source
 from schematizer.models.topic import Topic
 
 
-# TODO (clin|DATAPIPE-2147): remove below constants.
-fake_default_id = 1
-fake_namespace = 'yelp'
-fake_source = 'business'
-fake_owner_email = 'business@yelp.com'
-fake_topic_name = 'yelp.business.v1'
-fake_offset = 0
-fake_updated_offset = 500
-fake_batch_size = 100
-fake_priority = 'MEDIUM'
-fake_priority_value = 50
-fake_status = 'SUCCESS'
-fake_status_value = 3
-fake_filter_condition = 'user=test_user'
-
-
 def _create_entity(session, entity):
     session.add(entity)
     session.flush()
