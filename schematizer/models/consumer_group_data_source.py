@@ -18,12 +18,12 @@ from __future__ import unicode_literals
 
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy.types import Enum
 
 from schematizer.models.base_model import BaseModel
 from schematizer.models.database import Base
-from schematizer.models.types.time import build_time_column
 
 
 class DataSourceTypeEnum(object):
@@ -60,11 +60,12 @@ class ConsumerGroupDataSource(Base, BaseModel):
     data_source_id = Column(Integer, nullable=False)
 
     # Timestamp when the entry is created
-    created_at = build_time_column(default_now=True, nullable=False)
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
     # Timestamp when the entry is last updated
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )

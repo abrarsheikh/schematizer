@@ -16,8 +16,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import datetime
-
 from sqlalchemy import and_
 from sqlalchemy import or_
 
@@ -89,8 +87,7 @@ def update_note(id, note_text, last_updated_by):
     ).update(
         {
             models.Note.note: note_text,
-            models.Note.last_updated_by: last_updated_by,
-            models.Note.updated_at: datetime.datetime.utcnow()
+            models.Note.last_updated_by: last_updated_by
         }
     )
 
