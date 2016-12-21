@@ -26,6 +26,7 @@ from schematizer.models.meta_attribute_mapping_store import (
     MetaAttributeMappingStore
 )
 from schematizer.models.namespace import Namespace
+from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
 from schematizer.models.source import Source
 from schematizer.models.topic import Topic
@@ -138,7 +139,7 @@ def create_refresh(
     source_id,
     offset=0,
     batch_size=100,
-    priority=None,
+    priority=Priority.MEDIUM.value,
     filter_condition=None,
     avg_rows_per_second_cap=200
 ):
