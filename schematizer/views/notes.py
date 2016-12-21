@@ -25,6 +25,7 @@ from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
 from schematizer.logic import doc_tool
 from schematizer.logic import schema_repository
+from schematizer.models.database import session
 from schematizer.models.note import ReferenceTypeEnum
 
 
@@ -72,15 +73,13 @@ def assert_reference_exists(reference_type, reference_id):
 @log_api()
 def update_note(request):
     req = requests_v1.UpdateNoteRequest(**request.json_body)
-    note_id_str = request.matchdict.get('note_id')
-    note_id = int(note_id_str)
+    note_id = int(request.matchdict.get('note_id'))
     note = doc_tool.get_note_by_id(note_id)
-    # Raise an exception if the note cannot be found
     if note is None:
         raise exceptions_v1.note_not_found_exception()
-    doc_tool.update_note(
-        id=note_id,
-        note_text=req.note,
-        last_updated_by=req.last_updated_by
-    )
+
+    note.note = req.note
+    note.last_updated_by = req.last_updated_by
+    session.add(note)
+    session.flush()
     return responses_v1.get_note_response_from_note(note)

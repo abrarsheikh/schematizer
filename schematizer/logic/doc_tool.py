@@ -79,19 +79,6 @@ def get_notes_by_schemas_and_elements(schemas, elements):
     ).order_by(models.Note.id).all()
 
 
-def update_note(id, note_text, last_updated_by):
-    return session.query(
-        models.Note
-    ).filter(
-        models.Note.id == id
-    ).update(
-        {
-            models.Note.note: note_text,
-            models.Note.last_updated_by: last_updated_by
-        }
-    )
-
-
 def create_note(reference_type, reference_id, note_text, last_updated_by):
     note = models.Note(
         reference_type=reference_type,

@@ -23,7 +23,6 @@ import pytest
 from schematizer import models
 from schematizer.logic import doc_tool
 from schematizer_testing import factories
-from schematizer_testing import utils
 from tests.models.testing_db import DBTestCase
 
 
@@ -170,15 +169,6 @@ class TestDocTool(DBTestCase):
         )
         self.assert_equal_note_partial(expected_note, actual_note)
 
-    def test_update_schema_note(self, schema_note):
-        new_text = "This is new text"
-        new_user = "user2@yelp.com"
-        doc_tool.update_note(schema_note.id, new_text, new_user)
-        actual = utils.get_entity_by_id(models.Note, schema_note.id)
-        schema_note.note = new_text
-        schema_note.last_updated_by = new_user
-        self.assert_equal_note_partial(actual, schema_note)
-
     def test_create_schema_element_note(self, schema_element):
         actual_note = doc_tool.create_note(
             models.ReferenceTypeEnum.SCHEMA_ELEMENT,
@@ -193,15 +183,6 @@ class TestDocTool(DBTestCase):
             last_updated_by=self.user_email,
         )
         self.assert_equal_note_partial(expected_note, actual_note)
-
-    def test_update_schema_element_note(self, schema_element_note):
-        new_text = "This is new text"
-        new_user = "user2@yelp.com"
-        doc_tool.update_note(schema_element_note.id, new_text, new_user)
-        actual = utils.get_entity_by_id(models.Note, schema_element_note.id)
-        schema_element_note.note = new_text
-        schema_element_note.last_updated_by = new_user
-        self.assert_equal_note_partial(actual, schema_element_note)
 
     def test_get_distinct_categories(self, source_category):
         actual = doc_tool.get_distinct_categories()
