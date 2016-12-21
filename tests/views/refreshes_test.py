@@ -16,9 +16,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import time
-from datetime import datetime
-
 import pytest
 
 from schematizer.api.exceptions import exceptions_v1
@@ -118,9 +115,7 @@ class TestGetRefreshesByCriteria(ApiTestBase):
         yelp_namespace,
         biz_src_refresh
     ):
-        updated_timestamp = (biz_src_refresh.created_at -
-                             datetime.utcfromtimestamp(0)).total_seconds() + 1
-        time.sleep(2)
+        updated_timestamp = biz_src_refresh.created_at + 1
         mock_request.json_body = self.update_request
         mock_request.matchdict = {'refresh_id': str(biz_src_refresh.id)}
         refresh_views.update_refresh(mock_request)
