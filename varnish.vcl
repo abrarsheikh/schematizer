@@ -4,7 +4,7 @@ backend default {
 }
 
 sub vcl_fetch {
-    if (req.url ~ "swagger.json$") {
+    if (beresp.status == 200 && req.url ~ "swagger.json$") {
         set beresp.ttl = 604800s;  // 1 week
         return (deliver);
     }
