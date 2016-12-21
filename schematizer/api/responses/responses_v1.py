@@ -104,8 +104,8 @@ def get_category_response_from_source_category(source_category):
     return {
         'source_id': source_category.source_id,
         'category': source_category.category,
-        'created_at': _format_datetime(source_category.created_at),
-        'updated_at': _format_datetime(source_category.updated_at)
+        'created_at': _format_timestamp(source_category.created_at),
+        'updated_at': _format_timestamp(source_category.updated_at)
     }
 
 
@@ -120,8 +120,8 @@ def get_refresh_response_from_refresh(refresh):
         'priority': refresh.priority,
         'filter_condition': refresh.filter_condition,
         'avg_rows_per_second_cap': refresh.avg_rows_per_second_cap,
-        'created_at': _format_datetime(refresh.created_at),
-        'updated_at': _format_datetime(refresh.updated_at)
+        'created_at': _format_timestamp(refresh.created_at),
+        'updated_at': _format_timestamp(refresh.updated_at)
     }
 
 
@@ -171,8 +171,8 @@ def get_element_response_from_element(element):
         'key': element.key,
         'doc': element.doc,
         'note': get_note_response_from_note(element.note),
-        'created_at': _format_datetime(element.created_at),
-        'updated_at': _format_datetime(element.updated_at),
+        'created_at': _format_timestamp(element.created_at),
+        'updated_at': _format_timestamp(element.updated_at),
     }
 
 

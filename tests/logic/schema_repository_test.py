@@ -1389,7 +1389,7 @@ class TestByCriteria(DBTestCase):
 
     def test_no_newer_refresh(self, sorted_refreshes):
         last_refresh = sorted_refreshes[-1]
-        after_dt = last_refresh.created_at + datetime.timedelta(seconds=1)
+        after_dt = last_refresh.created_at + 1
         actual = schema_repo.get_refreshes_by_criteria(created_after=after_dt)
         assert actual == []
 

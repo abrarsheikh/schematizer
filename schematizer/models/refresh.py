@@ -19,12 +19,12 @@ from __future__ import unicode_literals
 from enum import Enum
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
 
 from schematizer.models.base_model import BaseModel
 from schematizer.models.database import Base
-from schematizer.models.types.time import build_time_column
 
 
 class Priority(Enum):
@@ -83,13 +83,11 @@ class Refresh(Base, BaseModel):
         default=None
     )
 
-    created_at = build_time_column(
-        default_now=True,
-        nullable=False
-    )
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )
