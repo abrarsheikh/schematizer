@@ -1,5 +1,5 @@
 {
-    "apiVersion": "1.0.0",
+    "apiVersion": "1.1.0",
     "apis": [
         {
             "operations": [
@@ -8,7 +8,7 @@
                     "items": {
                         "type": "string"
                     },
-                    "method": "GET",
+                    "method": "POST",
                     "nickname": "get_schema_migration",
                     "parameters": [
                         {

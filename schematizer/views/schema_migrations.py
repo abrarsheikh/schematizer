@@ -47,7 +47,7 @@ SCHEMA_MIGRATION_STRATEGY_MAP = {
 
 @view_config(
     route_name='api.v1.get_schema_migration',
-    request_method='GET',
+    request_method='POST',
     renderer='json'
 )
 @transform_api_response()
