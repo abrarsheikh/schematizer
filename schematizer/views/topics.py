@@ -91,7 +91,7 @@ def get_topics_by_criteria(request):
     topics = schema_repository.get_topics_by_criteria(
         namespace=criteria.namespace,
         source=criteria.source,
-        created_after=criteria.created_after_datetime,
+        created_after=criteria.created_after,
         page_info=pagination
     )
     return [responses_v1.get_topic_response_from_topic(topic)

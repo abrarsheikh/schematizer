@@ -118,6 +118,13 @@ class TestGetTopicsByCriteria(ApiTestBase):
         actual = topic_views.get_topics_by_criteria(mock_request)
         assert actual == []
 
+    def test_get_topics_created_after_given_timestamp(
+        self, mock_request, biz_topic
+    ):
+        mock_request.params = {'created_after': biz_topic.created_at}
+        actual = topic_views.get_topics_by_criteria(mock_request)
+        assert actual == [self.get_expected_topic_resp(biz_topic.id)]
+
     def test_filter_by_namespace_and_time(self, mock_request, biz_topic):
         mock_request.params = {
             'namespace': biz_topic.source.namespace.name,
