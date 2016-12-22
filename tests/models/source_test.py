@@ -16,9 +16,14 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import pytest
+
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.source import Source
+from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetAllModelTestBase
+from tests.models.testing_db import DBTestCase
 
 
 class TestGetAllSources(GetAllModelTestBase):
@@ -33,3 +38,18 @@ class TestGetAllSources(GetAllModelTestBase):
     entity_model = Source
     create_entity_func = create_source
     assert_func_name = 'assert_equal_source'
+
+
+class TestGetSourceById(DBTestCase):
+
+    @pytest.fixture
+    def source_bar(self):
+        return factories.create_source(namespace_name='foo', source_name='bar')
+
+    def test_happy_case(self, source_bar):
+        actual = Source.get_by_id(source_bar.id)
+        asserts.assert_equal_source(actual, expected=source_bar)
+
+    def test_non_existed_source(self):
+        with pytest.raises(EntityNotFoundError):
+            Source.get_by_id(obj_id=0)
