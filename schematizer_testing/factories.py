@@ -28,6 +28,7 @@ from schematizer.models.meta_attribute_mapping_store import (
 from schematizer.models.namespace import Namespace
 from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
+from schematizer.models.refresh import RefreshStatus
 from schematizer.models.source import Source
 from schematizer.models.topic import Topic
 
@@ -135,25 +136,19 @@ def create_note(reference_type, reference_id, note_text, last_updated_by):
     )
 
 
-def create_refresh(
-    source_id,
-    offset=0,
-    batch_size=100,
-    priority=Priority.MEDIUM.value,
-    filter_condition=None,
-    avg_rows_per_second_cap=200
-):
-    return _create_entity(
-        session,
-        Refresh(
-            source_id=source_id,
-            offset=offset,
-            batch_size=batch_size,
-            priority=priority,
-            filter_condition=filter_condition,
-            avg_rows_per_second_cap=avg_rows_per_second_cap
-        )
-    )
+def create_refresh(source_id, **overrides):
+    params = {
+        'source_id': source_id,
+        'offset': 0,
+        'batch_size': 100,
+        'priority': Priority.MEDIUM.value,
+        'status': RefreshStatus.NOT_STARTED.value,
+        'filter_condition': None,
+        'avg_rows_per_second_cap': 200
+    }
+    if overrides:
+        params.update(overrides)
+    return _create_entity(session, Refresh(**params))
 
 
 def create_source_category(source_id, category):
