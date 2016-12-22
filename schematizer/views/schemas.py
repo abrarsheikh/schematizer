@@ -28,6 +28,7 @@ from schematizer.config import get_config
 from schematizer.config import log
 from schematizer.logic import registration_repository as reg_repo
 from schematizer.logic import schema_repository
+from schematizer.models.avro_schema import AvroSchema
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.utils.utils import get_current_func_arg_name_values
 from schematizer.views import view_common
@@ -40,10 +41,11 @@ from schematizer.views import view_common
 )
 @transform_api_response()
 def get_schema_by_id(request):
-    schema_id = request.matchdict.get('schema_id')
-    avro_schema = schema_repository.get_schema_by_id(int(schema_id))
-    if avro_schema is None:
-        raise exceptions_v1.schema_not_found_exception()
+    schema_id = int(request.matchdict.get('schema_id'))
+    try:
+        avro_schema = AvroSchema.get_by_id(schema_id)
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
     request.response.cache_control = 'max-age=86400'
     return responses_v1.get_schema_response_from_avro_schema(avro_schema)
 
@@ -168,11 +170,11 @@ def _register_avro_schema(
 @transform_api_response()
 def get_schema_elements_by_schema_id(request):
     schema_id = int(request.matchdict.get('schema_id'))
-    # First check if schema exists
-    schema = schema_repository.get_schema_by_id(schema_id)
-    if schema is None:
-        raise exceptions_v1.schema_not_found_exception()
-    # Get schema elements
+    try:
+        AvroSchema.get_by_id(schema_id)
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
+
     elements = schema_repository.get_schema_elements_by_schema_id(schema_id)
     return [responses_v1.get_element_response_from_element(element)
             for element in elements]

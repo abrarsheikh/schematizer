@@ -90,7 +90,7 @@ class TestCreateNote(NotesViewTestBase):
             note_views.create_note(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.REFERENCE_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'AvroSchema id 0 not found.'
 
 
 class TestUpdateNote(NotesViewTestBase):

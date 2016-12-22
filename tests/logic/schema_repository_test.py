@@ -511,14 +511,6 @@ class TestSchemaRepository(DBTestCase):
         actual = schema_repo.get_source_by_fullname('foo', 'bar')
         assert actual is None
 
-    def test_get_schema_by_id(self, rw_schema):
-        actual = schema_repo.get_schema_by_id(rw_schema.id)
-        asserts.assert_equal_avro_schema(rw_schema, actual)
-
-    def test_get_schema_by_id_with_nonexistent_schema(self):
-        actual = schema_repo.get_schema_by_id(0)
-        assert actual is None
-
     def test_get_latest_schema_by_topic_id(self, topic, rw_schema):
         actual = schema_repo.get_latest_schema_by_topic_id(topic.id)
         asserts.assert_equal_avro_schema(rw_schema, actual)
