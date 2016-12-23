@@ -80,6 +80,5 @@ def update_note(request):
 
     note.note = req.note
     note.last_updated_by = req.last_updated_by
-    session.add(note)
     session.flush()
     return responses_v1.get_note_response_from_note(note)

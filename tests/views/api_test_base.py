@@ -169,7 +169,8 @@ class ApiTestBase(DBTestCase):
             {
                 expected_entity_type: expected_entity_id,
                 'meta_attribute_schema_id': mapping.meta_attr_schema_id
-            } for mapping in mappings]
+            } for mapping in mappings
+        ]
 
     @classmethod
     def get_http_exception(cls, http_status_code):

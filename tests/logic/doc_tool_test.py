@@ -16,8 +16,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import datetime
-
 import pytest
 
 from schematizer import models
@@ -43,10 +41,6 @@ class TestDocTool(DBTestCase):
     @property
     def user_email(self):
         return "user@yelp.com"
-
-    @property
-    def test_date(self):
-        return datetime.datetime(2015, 9, 4, 17, 37, 0)
 
     @pytest.fixture
     def topic(self):
