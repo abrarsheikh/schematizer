@@ -143,15 +143,10 @@ class TestGetModelById(DBTestCase):
         actual = models.AvroSchema.get_by_id(biz_schema.id)
         asserts.assert_equal_avro_schema(actual, biz_schema)
 
-    def test_get_refresh_by_id(self, biz_src_refresh):
-        actual = models.Refresh.get_by_id(biz_src_refresh.id)
-        asserts.assert_equal_refresh(actual, biz_src_refresh)
-
     @pytest.mark.parametrize('model_cls', [
         models.Topic,
         models.AvroSchema,
         models.AvroSchemaElement,
-        models.Refresh,
         models.Note,
         models.SourceCategory,
         models.DataTarget,

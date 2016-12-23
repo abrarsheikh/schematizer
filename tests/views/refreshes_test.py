@@ -18,17 +18,36 @@ from __future__ import unicode_literals
 
 import pytest
 
-from schematizer.api.exceptions import exceptions_v1
 from schematizer.views import refreshes as refresh_views
+from schematizer_testing import factories
 from tests.views.api_test_base import ApiTestBase
 
 
-class TestGetRefreshByID(ApiTestBase):
+class RefreshTestBase(ApiTestBase):
 
-    def test_happy_case(self, mock_request, biz_src_refresh):
-        mock_request.matchdict = {'refresh_id': str(biz_src_refresh.id)}
+    @property
+    def namespace_foo(self):
+        return 'foo'
+
+    @property
+    def source_bar(self):
+        return 'bar'
+
+    @pytest.fixture
+    def source(self):
+        return factories.create_source(self.namespace_foo, self.source_bar)
+
+    @pytest.fixture
+    def source_bar_refresh(self, source):
+        return factories.create_refresh(source_id=source.id)
+
+
+class TestGetRefreshByID(RefreshTestBase):
+
+    def test_happy_case(self, mock_request, source_bar_refresh):
+        mock_request.matchdict = {'refresh_id': str(source_bar_refresh.id)}
         actual = refresh_views.get_refresh_by_id(mock_request)
-        expected = self.get_expected_src_refresh_resp(biz_src_refresh.id)
+        expected = self.get_expected_src_refresh_resp(source_bar_refresh.id)
         assert actual == expected
 
     def test_non_existing_topic_name(self, mock_request):
@@ -38,10 +57,10 @@ class TestGetRefreshByID(ApiTestBase):
             refresh_views.get_refresh_by_id(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.REFRESH_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == "Refresh id 0 not found."
 
 
-class TestUpdateRefresh(ApiTestBase):
+class TestUpdateRefresh(RefreshTestBase):
 
     @property
     def update_request(self):
@@ -50,13 +69,13 @@ class TestUpdateRefresh(ApiTestBase):
             'offset': 100
         }
 
-    def test_update_refresh(self, mock_request, biz_src_refresh):
+    def test_update_refresh(self, mock_request, source_bar_refresh):
         mock_request.json_body = self.update_request
-        mock_request.matchdict = {'refresh_id': str(biz_src_refresh.id)}
+        mock_request.matchdict = {'refresh_id': str(source_bar_refresh.id)}
         actual = refresh_views.update_refresh(mock_request)
 
         expected = self.get_expected_src_refresh_resp(
-            biz_src_refresh.id,
+            source_bar_refresh.id,
             status='IN_PROGRESS',
             offset=100
         )
@@ -70,60 +89,65 @@ class TestUpdateRefresh(ApiTestBase):
             refresh_views.update_refresh(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.REFRESH_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == "Refresh id 0 not found."
 
 
-class TestGetRefreshesByCriteria(ApiTestBase):
+class TestGetRefreshesByCriteria(RefreshTestBase):
 
-    @property
-    def update_request(self):
-        return {
-            'status': 'FAILED',
-            'offset': 200
-        }
+    @pytest.fixture
+    def refresh_one(self, source):
+        return factories.create_refresh(source_id=source.id)
 
+    @pytest.fixture
+    def refresh_two(self, source, refresh_one):
+        return factories.create_refresh(
+            source_id=source.id,
+            status='IN_PROGRESS',
+            created_at=refresh_one.created_at + 2,  # created 2 seconds later
+            updated_at=refresh_one.updated_at + 5
+        )
+
+    @pytest.mark.usefixtures('refresh_one', 'refresh_two')
     def test_non_existing_namespace(self, mock_request):
         mock_request.params = {'namespace': 'missing'}
         actual = refresh_views.get_refreshes_by_criteria(mock_request)
         assert actual == []
 
-    def test_no_matching_refreshes(self, mock_request, yelp_namespace):
+    @pytest.mark.usefixtures('refresh_one', 'refresh_two')
+    def test_no_matching_refreshes(self, mock_request):
         mock_request.params = {
-            'namespace': yelp_namespace.name,
+            'namespace': self.namespace_foo,
             'status': 'FAILED'
         }
         actual = refresh_views.get_refreshes_by_criteria(mock_request)
         assert actual == []
 
-    def test_filter_by_namespace(
-        self,
-        mock_request,
-        yelp_namespace,
-        biz_src_refresh
-    ):
-        mock_request.params = {
-            'namespace': yelp_namespace.name,
-            'status': 'NOT_STARTED'
-        }
+    def test_filter_by_namespace(self, mock_request, refresh_one, refresh_two):
+        mock_request.params = {'namespace': self.namespace_foo}
         actual = refresh_views.get_refreshes_by_criteria(mock_request)
-        expected = [self.get_expected_src_refresh_resp(biz_src_refresh.id)]
+        expected = [self.get_expected_src_refresh_resp(refresh_one.id),
+                    self.get_expected_src_refresh_resp(refresh_two.id)]
         assert actual == expected
 
-    def test_filter_by_updated_after(
-        self,
-        mock_request,
-        yelp_namespace,
-        biz_src_refresh
-    ):
-        updated_timestamp = biz_src_refresh.created_at + 1
-        mock_request.json_body = self.update_request
-        mock_request.matchdict = {'refresh_id': str(biz_src_refresh.id)}
-        refresh_views.update_refresh(mock_request)
-        mock_request.params = {
-            'namespace': yelp_namespace.name,
-            'updated_after': updated_timestamp,
-            'status': 'FAILED'
-        }
+    def test_filter_by_status(self, mock_request, refresh_one, refresh_two):
+        mock_request.params = {'status': 'NOT_STARTED'}
         actual = refresh_views.get_refreshes_by_criteria(mock_request)
-        expected = [self.get_expected_src_refresh_resp(biz_src_refresh.id)]
+        expected = [self.get_expected_src_refresh_resp(refresh_one.id)]
+        assert actual == expected
+
+    def test_get_refreshes_created_after_timestamp(
+        self, mock_request, refresh_one, refresh_two
+    ):
+        mock_request.params = {'created_after': refresh_one.created_at}
+        actual = refresh_views.get_refreshes_by_criteria(mock_request)
+        expected = [self.get_expected_src_refresh_resp(refresh_one.id),
+                    self.get_expected_src_refresh_resp(refresh_two.id)]
+        assert actual == expected
+
+    def test_get_refreshes_updated_after_timestamp(
+        self, mock_request, refresh_one, refresh_two
+    ):
+        mock_request.params = {'updated_after': refresh_one.updated_at + 1}
+        actual = refresh_views.get_refreshes_by_criteria(mock_request)
+        expected = [self.get_expected_src_refresh_resp(refresh_two.id)]
         assert actual == expected

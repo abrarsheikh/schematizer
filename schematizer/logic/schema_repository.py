@@ -917,16 +917,13 @@ def get_refreshes_by_criteria(
     """Get all the refreshes that match the given filter criteria.
 
     Args:
-        namespace(Optional[str]): get refreshes of given namespace
-            if specified.
-        source_name(Optional[str]): get refreshes of given source
-            if specified.
-        status(Optional[str]): get refreshes of given status
-            if specified.
-        created_after(Optional[datetime]): get refreshes created
-            after given utc datetime (inclusive) if specified.
-        updated_after(Optional[datetime]): get refreshes updated
-            after given utc datetime (inclusive) if specified.
+        namespace(str, optional): get refreshes of given namespace if specified
+        source_name(str, optional): get refreshes of given source if specified
+        status(str, optional): get refreshes of given status if specified
+        created_after(int, optional): get refreshes created after given unix
+            timestamp (inclusive) if specified.
+        updated_after(int, optional): get refreshes updated after given unix
+            timestamp (inclusive) if specified.
     """
     qry = session.query(models.Refresh)
     if namespace:
@@ -944,33 +941,12 @@ def get_refreshes_by_criteria(
         )
     if status:
         qry = qry.filter(models.Refresh.status == status)
-    if created_after:
+    if created_after is not None:
         qry = qry.filter(models.Refresh.created_at >= created_after)
-    if updated_after:
+    if updated_after is not None:
         qry = qry.filter(models.Refresh.updated_at >= updated_after)
     return qry.order_by(
         desc(models.Refresh.priority)
     ).order_by(
         models.Refresh.id
     ).all()
-
-
-def get_refresh_by_id(refresh_id):
-    return session.query(
-        models.Refresh
-    ).filter(
-        models.Refresh.id == refresh_id
-    ).first()
-
-
-def update_refresh(refresh_id, status, offset):
-    return session.query(
-        models.Refresh
-    ).filter(
-        models.Refresh.id == refresh_id
-    ).update(
-        {
-            models.Refresh.status: status,
-            models.Refresh.offset: offset
-        }
-    )
