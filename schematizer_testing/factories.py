@@ -26,25 +26,11 @@ from schematizer.models.meta_attribute_mapping_store import (
     MetaAttributeMappingStore
 )
 from schematizer.models.namespace import Namespace
+from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
+from schematizer.models.refresh import RefreshStatus
 from schematizer.models.source import Source
 from schematizer.models.topic import Topic
-
-
-# TODO (clin|DATAPIPE-2147): remove below constants.
-fake_default_id = 1
-fake_namespace = 'yelp'
-fake_source = 'business'
-fake_owner_email = 'business@yelp.com'
-fake_topic_name = 'yelp.business.v1'
-fake_offset = 0
-fake_updated_offset = 500
-fake_batch_size = 100
-fake_priority = 'MEDIUM'
-fake_priority_value = 50
-fake_status = 'SUCCESS'
-fake_status_value = 3
-fake_filter_condition = 'user=test_user'
 
 
 def _create_entity(session, entity):
@@ -150,25 +136,19 @@ def create_note(reference_type, reference_id, note_text, last_updated_by):
     )
 
 
-def create_refresh(
-    source_id,
-    offset=0,
-    batch_size=100,
-    priority=None,
-    filter_condition=None,
-    avg_rows_per_second_cap=200
-):
-    return _create_entity(
-        session,
-        Refresh(
-            source_id=source_id,
-            offset=offset,
-            batch_size=batch_size,
-            priority=priority,
-            filter_condition=filter_condition,
-            avg_rows_per_second_cap=avg_rows_per_second_cap
-        )
-    )
+def create_refresh(source_id, **overrides):
+    params = {
+        'source_id': source_id,
+        'offset': 0,
+        'batch_size': 100,
+        'priority': Priority.MEDIUM.value,
+        'status': RefreshStatus.NOT_STARTED.value,
+        'filter_condition': None,
+        'avg_rows_per_second_cap': 200
+    }
+    if overrides:
+        params.update(overrides)
+    return _create_entity(session, Refresh(**params))
 
 
 def create_source_category(source_id, category):

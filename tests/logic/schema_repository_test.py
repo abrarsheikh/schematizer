@@ -132,10 +132,6 @@ class TestSchemaRepository(DBTestCase):
         )
 
     @property
-    def source_id(self):
-        return factories.fake_default_id
-
-    @property
     def offset(self):
         return 0
 
@@ -741,47 +737,17 @@ class TestSchemaRepository(DBTestCase):
             )
 
     def test_create_refresh(self):
-        actual_refresh = schema_repo.create_refresh(
-            self.source_id,
-            self.offset,
-            self.batch_size,
-            self.priority,
-            self.filter_condition,
-            self.avg_rows_per_second_cap
-        )
-        expected_refresh = models.Refresh(
-            source_id=self.source_id,
-            status=models.RefreshStatus.NOT_STARTED.value,
+        source = factories.create_source('foo_namespace', 'bar_source')
+        actual = schema_repo.create_refresh(
+            source_id=source.id,
             offset=self.offset,
             batch_size=self.batch_size,
             priority=self.priority,
             filter_condition=self.filter_condition,
             avg_rows_per_second_cap=self.avg_rows_per_second_cap
         )
-        self.assert_equal_refresh_partial(expected_refresh, actual_refresh)
-
-    def test_get_refresh_by_id(self, refresh):
-        actual_refresh = schema_repo.get_refresh_by_id(refresh.id)
-        self.assert_equal_refresh(refresh, actual_refresh)
-
-    def test_update_refresh(self, refresh):
-        new_status = models.RefreshStatus.IN_PROGRESS
-        new_offset = 500
-        schema_repo.update_refresh(
-            refresh.id,
-            new_status.name,
-            new_offset
-        )
-        actual_refresh = schema_repo.get_refresh_by_id(refresh.id)
-        expected_refresh = models.Refresh(
-            source_id=refresh.source_id,
-            status=new_status.value,
-            offset=new_offset,
-            batch_size=refresh.batch_size,
-            priority=refresh.priority,
-            filter_condition=refresh.filter_condition
-        )
-        self.assert_equal_refresh_partial(expected_refresh, actual_refresh)
+        expected = utils.get_entity_by_id(models.Refresh, actual.id)
+        asserts.assert_equal_refresh(actual, expected)
 
     def test_list_refreshes_source_id(self, refresh, source):
         refreshes = schema_repo.list_refreshes_by_source_id(source.id)
@@ -1329,46 +1295,17 @@ class TestByCriteria(DBTestCase):
     def some_datetime(self):
         return datetime.datetime(2015, 3, 1, 10, 23, 5, 254)
 
-    @property
-    def avg_rows_per_second_cap(self):
-        return 1000
-
-    @property
-    def priority(self):
-        return 50
-
     @pytest.fixture
     def biz_refresh(self, biz_source):
-        return factories.create_refresh(
-            source_id=biz_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=biz_source.id)
 
     @pytest.fixture
     def user_refresh(self, user_source):
-        return factories.create_refresh(
-            source_id=user_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=user_source.id)
 
     @pytest.fixture
     def cta_refresh(self, cta_source):
-        return factories.create_refresh(
-            source_id=cta_source.id,
-            offset=factories.fake_offset,
-            batch_size=factories.fake_batch_size,
-            priority=self.priority,
-            filter_condition=factories.fake_filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=cta_source.id)
 
     @pytest.fixture
     def biz_topic(self, biz_source):
@@ -1429,7 +1366,7 @@ class TestByCriteria(DBTestCase):
 
     def test_no_newer_refresh(self, sorted_refreshes):
         last_refresh = sorted_refreshes[-1]
-        after_dt = last_refresh.created_at + datetime.timedelta(seconds=1)
+        after_dt = last_refresh.created_at + 1
         actual = schema_repo.get_refreshes_by_criteria(created_after=after_dt)
         assert actual == []
 

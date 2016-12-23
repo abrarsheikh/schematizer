@@ -94,8 +94,8 @@ class ApiTestBase(DBTestCase):
             'offset': src_refresh.offset,
             'batch_size': src_refresh.batch_size,
             'priority': src_refresh.priority,
-            'created_at': _format_datetime(src_refresh.created_at),
-            'updated_at': _format_datetime(src_refresh.updated_at)
+            'created_at': _format_timestamp(src_refresh.created_at),
+            'updated_at': _format_timestamp(src_refresh.updated_at)
         }
         if src_refresh.avg_rows_per_second_cap is not None:
             expected[

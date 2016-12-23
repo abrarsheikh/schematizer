@@ -19,6 +19,7 @@ from __future__ import unicode_literals
 from cached_property import cached_property
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
 
@@ -27,7 +28,6 @@ from schematizer.models.database import Base
 from schematizer.models.database import session
 from schematizer.models.note import Note
 from schematizer.models.note import ReferenceTypeEnum
-from schematizer.models.types.time import build_time_column
 
 
 class AvroSchemaElement(Base, BaseModel):
@@ -88,16 +88,14 @@ class AvroSchemaElement(Base, BaseModel):
     doc = Column(String)
 
     # Timestamp when the entry is created
-    created_at = build_time_column(
-        default_now=True,
-        nullable=False
-    )
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
     # Timestamp when the entry is last updated
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )
 
     @property
