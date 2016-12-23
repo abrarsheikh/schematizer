@@ -32,11 +32,6 @@ DEFAULT_KAFKA_CLUSTER_TYPE = 'datapipe'
 class RequestBase(object):
 
     @classmethod
-    def create_from_string(cls, request_body_string):
-        request_json = simplejson.loads(request_body_string)
-        return cls(**request_json)
-
-    @classmethod
     def _get_datetime(cls, request_timestamp):
         if request_timestamp is None:
             return None, None
@@ -175,20 +170,6 @@ class GetTopicsRequest(RequestBase):
         )
 
 
-class GetRefreshesRequest(RequestBase):
-
-    def __init__(self, query_params):
-        super(GetRefreshesRequest, self).__init__()
-        self.namespace = query_params.get('namespace')
-        self.status = query_params.get('status')
-        self.created_after, self.created_after_datetime = self._get_datetime(
-            query_params.get('created_after')
-        )
-        self.updated_after, self.updated_after_datetime = self._get_datetime(
-            query_params.get('updated_after')
-        )
-
-
 class CreateRefreshRequest(RequestBase):
 
     def __init__(
@@ -205,14 +186,6 @@ class CreateRefreshRequest(RequestBase):
         self.priority = priority
         self.filter_condition = filter_condition
         self.avg_rows_per_second_cap = avg_rows_per_second_cap
-
-
-class UpdateRefreshStatusRequest(RequestBase):
-
-    def __init__(self, status, offset):
-        super(UpdateRefreshStatusRequest, self).__init__()
-        self.status = status
-        self.offset = offset
 
 
 class CreateDataTargetRequest(RequestBase):

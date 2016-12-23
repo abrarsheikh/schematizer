@@ -749,29 +749,6 @@ class TestSchemaRepository(DBTestCase):
         expected = utils.get_entity_by_id(models.Refresh, actual.id)
         asserts.assert_equal_refresh(actual, expected)
 
-    def test_get_refresh_by_id(self, refresh):
-        actual_refresh = schema_repo.get_refresh_by_id(refresh.id)
-        self.assert_equal_refresh(refresh, actual_refresh)
-
-    def test_update_refresh(self, refresh):
-        new_status = models.RefreshStatus.IN_PROGRESS
-        new_offset = 500
-        schema_repo.update_refresh(
-            refresh.id,
-            new_status.name,
-            new_offset
-        )
-        actual_refresh = schema_repo.get_refresh_by_id(refresh.id)
-        expected_refresh = models.Refresh(
-            source_id=refresh.source_id,
-            status=new_status.value,
-            offset=new_offset,
-            batch_size=refresh.batch_size,
-            priority=refresh.priority,
-            filter_condition=refresh.filter_condition
-        )
-        self.assert_equal_refresh_partial(expected_refresh, actual_refresh)
-
     def test_list_refreshes_source_id(self, refresh, source):
         refreshes = schema_repo.list_refreshes_by_source_id(source.id)
         expected_refresh = models.Refresh(
