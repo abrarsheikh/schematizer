@@ -478,19 +478,9 @@ def get_latest_topic_of_namespace_source(namespace_name, source_name):
                 source_name
             )
         )
-    return session.query(
-        models.Topic
-    ).join(
-        models.Source,
-        models.Namespace
-    ).filter(
-        models.Namespace.id == models.Source.namespace_id,
-        models.Source.id == models.Topic.source_id,
-        models.Namespace.name == namespace_name,
-        models.Source.name == source_name
-    ).order_by(
-        models.Topic.id.desc()
-    ).first()
+    return session.query(models.Topic).filter(
+        models.Topic.source_id == source.id
+    ).order_by(models.Topic.id.desc()).first()
 
 
 def is_schema_compatible_in_topic(target_schema, topic):
@@ -677,29 +667,6 @@ def get_schemas_by_topic_id(topic_id, include_disabled=False):
             models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
         )
     return qry.order_by(models.AvroSchema.id).all()
-
-
-def mark_schema_disabled(schema_id):
-    """Disable the Avro schema of specified id.
-    """
-    _update_schema_status(schema_id, models.AvroSchemaStatus.DISABLED)
-
-
-def mark_schema_readonly(schema_id):
-    """Mark the Avro schema of specified id as read-only.
-    """
-    _update_schema_status(schema_id, models.AvroSchemaStatus.READ_ONLY)
-
-
-def _update_schema_status(schema_id, status):
-    session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.id == schema_id
-    ).update(
-        {'status': status}
-    )
-    session.flush()
 
 
 def get_topics_by_source_id(source_id):

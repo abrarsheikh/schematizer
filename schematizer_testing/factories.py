@@ -96,21 +96,21 @@ def create_avro_schema(
     topic_name='default_topic_name',
     namespace='default_namespace',
     source="default_source",
-    status=models.AvroSchemaStatus.READ_AND_WRITE,
-    base_schema_id=None,
-    created_at=None
+    **overrides
 ):
     topic = get_or_create_topic(topic_name, namespace, source)
 
-    avro_schema = AvroSchema(
-        avro_schema_json=schema_json,
-        topic_id=topic.id,
-        status=status,
-        base_schema_id=base_schema_id,
-        created_at=created_at
-    )
-    session.add(avro_schema)
-    session.flush()
+    params = {
+        'avro_schema_json': schema_json,
+        'topic_id': topic.id,
+        'status': models.AvroSchemaStatus.READ_AND_WRITE,
+        'base_schema_id': None,
+        'created_at': None,
+        'updated_at': None
+    }
+    if overrides:
+        params.update(overrides)
+    avro_schema = _create_entity(session, AvroSchema(**params))
 
     schema_elements = (
         schema_elements or
