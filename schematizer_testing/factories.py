@@ -104,9 +104,7 @@ def create_avro_schema(
         'avro_schema_json': schema_json,
         'topic_id': topic.id,
         'status': models.AvroSchemaStatus.READ_AND_WRITE,
-        'base_schema_id': None,
-        'created_at': None,
-        'updated_at': None
+        'base_schema_id': None
     }
     if overrides:
         params.update(overrides)
