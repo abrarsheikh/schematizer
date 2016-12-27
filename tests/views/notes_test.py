@@ -92,6 +92,20 @@ class TestCreateNote(NotesViewTestBase):
         assert e.value.code == expected_exception.code
         assert str(e.value) == 'AvroSchema id 0 not found.'
 
+    def test_invalid_reference_type(self, mock_request, biz_schema):
+        mock_request.json_body = {
+            'reference_id': biz_schema.id,
+            'reference_type': 'bad_type',
+            'note': self.note_text,
+            'last_updated_by': self.user_email
+        }
+        expected_exception = self.get_http_exception(400)
+        with pytest.raises(expected_exception) as e:
+            note_views.create_note(mock_request)
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == ('reference_type bad_type is invalid. It must '
+                                'be one of the values: schema, schema_element')
+
 
 class TestUpdateNote(NotesViewTestBase):
 

@@ -61,9 +61,18 @@ def assert_reference_exists(reference_type, reference_id):
 
     if model_cls:
         try:
-            model_cls.get_by_id(reference_id)
+            return model_cls.get_by_id(reference_id)
         except EntityNotFoundError as e:
             raise exceptions_v1.entity_not_found_exception(e.message)
+    raise exceptions_v1.invalid_request_exception(
+        "reference_type {} is invalid. It must be one of the values: {}"
+        .format(
+            reference_type,
+            ', '.join(
+                (ReferenceTypeEnum.SCHEMA, ReferenceTypeEnum.SCHEMA_ELEMENT)
+            )
+        )
+    )
 
 
 @view_config(
