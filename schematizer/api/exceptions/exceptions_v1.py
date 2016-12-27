@@ -21,7 +21,6 @@ from pyramid import httpexceptions
 
 LATEST_SCHEMA_NOT_FOUND_ERROR_MESSAGE = 'Latest schema is not found.'
 LATEST_TOPIC_NOT_FOUND_ERROR_MESSAGE = 'Latest topic is not found.'
-SOURCE_NOT_FOUND_ERROR_MESSAGE = 'Source is not found.'
 TOPIC_NOT_FOUND_ERROR_MESSAGE = 'Topic is not found.'
 INVALID_AVRO_SCHEMA_ERROR = 'Invalid Avro schema.'
 INVALID_REQUEST_ERROR = 'Invalid request.'
@@ -46,10 +45,6 @@ def empty_src_name_exception(err_message=EMPTY_SRC_NAME_ERROR):
 
 
 def entity_not_found_exception(err_message=ENTITY_NOT_FOUND_ERROR):
-    return httpexceptions.exception_response(404, detail=err_message)
-
-
-def source_not_found_exception(err_message=SOURCE_NOT_FOUND_ERROR_MESSAGE):
     return httpexceptions.exception_response(404, detail=err_message)
 
 

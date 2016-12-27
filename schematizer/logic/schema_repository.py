@@ -702,14 +702,6 @@ def get_topics_by_source_id(source_id):
     ).all()
 
 
-def get_source_by_id(source_id):
-    return session.query(
-        models.Source
-    ).filter(
-        models.Source.id == source_id
-    ).first()
-
-
 def get_latest_topic_of_source_id(source_id):
     return session.query(
         models.Topic
