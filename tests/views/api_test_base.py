@@ -112,8 +112,8 @@ class ApiTestBase(DBTestCase):
             'name': data_target.name,
             'target_type': data_target.target_type,
             'destination': data_target.destination,
-            'created_at': _format_datetime(data_target.created_at),
-            'updated_at': _format_datetime(data_target.updated_at)
+            'created_at': _format_timestamp(data_target.created_at),
+            'updated_at': _format_timestamp(data_target.updated_at)
         }
         if overrides:
             expected.update(overrides)

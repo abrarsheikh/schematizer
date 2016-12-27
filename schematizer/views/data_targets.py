@@ -48,11 +48,10 @@ def get_data_targets(request):
 @log_api()
 def create_data_target(request):
     try:
-        req = requests_v1.CreateDataTargetRequest(**request.json_body)
         data_target = reg_repo.create_data_target(
-            req.name,
-            req.target_type,
-            req.destination
+            name=request.json_body['name'],
+            target_type=request.json_body['target_type'],
+            destination=request.json_body['destination']
         )
         return resp_v1.get_data_target_response_from_data_target(data_target)
     except ValueError as e:
@@ -132,10 +131,8 @@ def create_consumer_group(request):
 @transform_api_response()
 def get_topics_by_data_target_id(request):
     data_target_id = int(request.matchdict.get('data_target_id'))
-    created_after_param = request.params.get('created_after')
-    created_after = (
-        int(created_after_param) if created_after_param is not None else None
-    )
+    param = request.params.get('created_after')
+    created_after = int(param) if param is not None else None
     try:
         topics = reg_repo.get_topics_by_data_target_id(
             data_target_id,
