@@ -63,7 +63,7 @@ class TestGetAvroSchemaById(DBTestCase):
         actual = AvroSchema.get_by_id(example_schema.id)
         asserts.assert_equal_avro_schema(actual, expected=example_schema)
 
-    def test_non_existed_avro_schema(self):
+    def test_non_existing_avro_schema(self):
         with pytest.raises(EntityNotFoundError):
             AvroSchema.get_by_id(obj_id=0)
 
