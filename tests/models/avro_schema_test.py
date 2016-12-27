@@ -21,6 +21,8 @@ import simplejson
 
 from schematizer import models
 from schematizer.models.avro_schema import AvroSchema
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetAllModelTestBase
 from tests.models.testing_db import DBTestCase
@@ -47,6 +49,23 @@ class TestGetAllAvroSchemas(GetAllModelTestBase):
     entity_model = AvroSchema
     create_entity_func = create_avro_schema
     assert_func_name = 'assert_equal_avro_schema'
+
+
+class TestGetAvroSchemaById(DBTestCase):
+
+    @pytest.fixture
+    def example_schema(self):
+        return factories.create_avro_schema(
+            schema_json={'type': 'array', 'items': 'int', 'doc': 'foo'}
+        )
+
+    def test_happy_case(self, example_schema):
+        actual = AvroSchema.get_by_id(example_schema.id)
+        asserts.assert_equal_avro_schema(actual, expected=example_schema)
+
+    def test_non_existing_avro_schema(self):
+        with pytest.raises(EntityNotFoundError):
+            AvroSchema.get_by_id(obj_id=0)
 
 
 class TestAvroSchemaModel(DBTestCase):

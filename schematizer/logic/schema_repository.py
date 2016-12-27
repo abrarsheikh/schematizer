@@ -588,16 +588,6 @@ def _create_avro_schema(
     return avro_schema
 
 
-def get_schema_by_id(schema_id):
-    """Get the Avro schema of specified id. It returns None if not found.
-    """
-    return session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.id == schema_id
-    ).first()
-
-
 def get_latest_schema_by_topic_id(topic_id):
     """Get the latest enabled (Read-Write or Read-Only) schema of given topic.
     It returns None if no such schema can be found.
@@ -712,14 +702,6 @@ def get_topics_by_source_id(source_id):
     ).all()
 
 
-def get_source_by_id(source_id):
-    return session.query(
-        models.Source
-    ).filter(
-        models.Source.id == source_id
-    ).first()
-
-
 def get_latest_topic_of_source_id(source_id):
     return session.query(
         models.Topic
@@ -759,14 +741,6 @@ def create_refresh(
     session.add(refresh)
     session.flush()
     return refresh
-
-
-def get_schema_element_by_id(schema_id):
-    return session.query(
-        models.AvroSchemaElement
-    ).filter(
-        models.AvroSchemaElement.id == schema_id
-    ).first()
 
 
 def get_schema_elements_by_schema_id(schema_id):

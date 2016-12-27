@@ -40,6 +40,25 @@ class TestGetAllDataTargets(GetAllModelTestBase):
     assert_func_name = 'assert_equal_data_target'
 
 
+class TestGetDataTargetById(DBTestCase):
+
+    @pytest.fixture
+    def data_target_foo(self):
+        return factories.create_data_target(
+            name='foo',
+            target_type='redshift',
+            destination='some_cluster.example.com'
+        )
+
+    def test_happy_case(self, data_target_foo):
+        actual = DataTarget.get_by_id(data_target_foo.id)
+        asserts.assert_equal_data_target(actual, expected=data_target_foo)
+
+    def test_non_existed_data_target(self):
+        with pytest.raises(EntityNotFoundError):
+            DataTarget.get_by_id(obj_id=0)
+
+
 class TestGetDataTargetByName(DBTestCase):
 
     @pytest.fixture
@@ -52,7 +71,7 @@ class TestGetDataTargetByName(DBTestCase):
 
     def test_happy_case(self, data_target_foo):
         actual = DataTarget.get_by_name(data_target_foo.name)
-        asserts.assert_equal_namespace(actual, expected=data_target_foo)
+        asserts.assert_equal_data_target(actual, expected=data_target_foo)
 
     def test_non_existed_data_target(self):
         with pytest.raises(EntityNotFoundError):

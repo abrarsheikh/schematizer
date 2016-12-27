@@ -188,15 +188,6 @@ class CreateRefreshRequest(RequestBase):
         self.avg_rows_per_second_cap = avg_rows_per_second_cap
 
 
-class CreateDataTargetRequest(RequestBase):
-
-    def __init__(self, name, target_type, destination):
-        super(CreateDataTargetRequest, self).__init__()
-        self.name = name
-        self.target_type = target_type
-        self.destination = destination
-
-
 class CreateConsumerGroupRequest(RequestBase):
 
     def __init__(self, group_name):
