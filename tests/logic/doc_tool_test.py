@@ -20,6 +20,7 @@ import pytest
 
 from schematizer import models
 from schematizer.logic import doc_tool
+from schematizer.models.database import session
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer_testing import asserts
 from schematizer_testing import factories
@@ -285,15 +286,30 @@ class TestUpdateNote(DBTestCase):
         )
 
     @pytest.fixture
-    def initial_note(self, schema):
-        return factories.create_note(
+    def schema_element(self, schema):
+        return session.query(models.AvroSchemaElement).filter(
+            models.AvroSchemaElement.avro_schema_id == schema.id
+        ).first()
+
+    def test_update_existing_schema_note(self, schema):
+        self._test_update_existing_note(
             reference_type=models.ReferenceTypeEnum.SCHEMA,
-            reference_id=schema.id,
+            reference_id=schema.id
+        )
+
+    def test_update_existing_element_note(self, schema_element):
+        self._test_update_existing_note(
+            reference_type=models.ReferenceTypeEnum.SCHEMA_ELEMENT,
+            reference_id=schema_element.id
+        )
+
+    def _test_update_existing_note(self, reference_type, reference_id):
+        initial_note = factories.create_note(
+            reference_type=reference_type,
+            reference_id=reference_id,
             note_text='initial notes',
             last_updated_by='test_dev1@example.com'
         )
-
-    def test_update_existing_note(self, schema, initial_note):
         actual = doc_tool.update_note(
             note_id=initial_note.id,
             note_text='new notes',
@@ -302,7 +318,7 @@ class TestUpdateNote(DBTestCase):
         expected = utils.get_entity_by_id(models.Note, initial_note.id)
         asserts.assert_equal_note(actual, expected)
 
-    def test_note_id_does_not_exist(self, schema, initial_note):
+    def test_note_id_does_not_exist(self, schema):
         with pytest.raises(EntityNotFoundError):
             doc_tool.update_note(
                 note_id=0,
