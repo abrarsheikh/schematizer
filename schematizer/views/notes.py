@@ -24,7 +24,9 @@ from schematizer.api.exceptions import exceptions_v1
 from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
 from schematizer.logic import doc_tool
-from schematizer.logic import schema_repository
+from schematizer.models.avro_schema import AvroSchema
+from schematizer.models.avro_schema import AvroSchemaElement
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.note import ReferenceTypeEnum
 
 
@@ -51,16 +53,26 @@ def assert_reference_exists(reference_type, reference_id):
     """Checks to make sure that the reference for this note exists.
     If it does not, raise an exception
     """
-    if (
-        reference_type == ReferenceTypeEnum.SCHEMA and
-        schema_repository.get_schema_by_id(reference_id) is not None
-    ) or (
-        reference_type == ReferenceTypeEnum.SCHEMA_ELEMENT and
-        schema_repository.get_schema_element_by_id(reference_id) is not None
-    ):
-        # Valid. Do nothing
-        return
-    raise exceptions_v1.reference_not_found_exception()
+    model_cls = None
+    if reference_type == ReferenceTypeEnum.SCHEMA:
+        model_cls = AvroSchema
+    elif reference_type == ReferenceTypeEnum.SCHEMA_ELEMENT:
+        model_cls = AvroSchemaElement
+
+    if model_cls:
+        try:
+            return model_cls.get_by_id(reference_id)
+        except EntityNotFoundError as e:
+            raise exceptions_v1.entity_not_found_exception(e.message)
+    raise exceptions_v1.invalid_request_exception(
+        "reference_type {} is invalid. It must be one of the values: {}"
+        .format(
+            reference_type,
+            ', '.join(
+                (ReferenceTypeEnum.SCHEMA, ReferenceTypeEnum.SCHEMA_ELEMENT)
+            )
+        )
+    )
 
 
 @view_config(
