@@ -26,7 +26,6 @@ TOPIC_NOT_FOUND_ERROR_MESSAGE = 'Topic is not found.'
 INVALID_AVRO_SCHEMA_ERROR = 'Invalid Avro schema.'
 INVALID_REQUEST_ERROR = 'Invalid request.'
 NOTE_NOT_FOUND_ERROR_MESSAGE = 'Note is not found.'
-REFERENCE_NOT_FOUND_ERROR_MESSAGE = 'Reference object not found'
 CATEGORY_NOT_FOUND_ERROR_MESSAGE = 'Category not found for the given source'
 RESTRICTED_CHAR_ERROR_MESSAGE = (
     'Source name or Namespace name should not contain the '
@@ -75,12 +74,6 @@ def invalid_request_exception(err_message=INVALID_REQUEST_ERROR):
 
 
 def note_not_found_exception(err_message=NOTE_NOT_FOUND_ERROR_MESSAGE):
-    return httpexceptions.exception_response(404, detail=err_message)
-
-
-def reference_not_found_exception(
-    err_message=REFERENCE_NOT_FOUND_ERROR_MESSAGE
-):
     return httpexceptions.exception_response(404, detail=err_message)
 
 
