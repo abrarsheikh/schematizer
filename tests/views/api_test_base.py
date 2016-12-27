@@ -21,7 +21,6 @@ import pytest
 from pyramid import httpexceptions
 
 from schematizer import models
-from schematizer.helpers.formatting import _format_datetime
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.models.meta_attribute_mapping_store import (
     MetaAttributeMappingStore)

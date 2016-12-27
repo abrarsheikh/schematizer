@@ -24,7 +24,6 @@ from __future__ import unicode_literals
 from data_pipeline_avro_util.data_pipeline.avro_meta_data \
     import AvroMetaDataKeys
 
-from schematizer.helpers.formatting import _format_datetime
 from schematizer.helpers.formatting import _format_timestamp
 
 

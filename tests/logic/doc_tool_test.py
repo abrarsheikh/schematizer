@@ -20,7 +20,10 @@ import pytest
 
 from schematizer import models
 from schematizer.logic import doc_tool
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer_testing import asserts
 from schematizer_testing import factories
+from schematizer_testing import utils
 from tests.models.testing_db import DBTestCase
 
 
@@ -268,3 +271,41 @@ class TestDocTool(DBTestCase):
     def assert_equal_source_category_partial(self, expected, actual):
         assert expected.source_id == actual.source_id
         assert expected.category == actual.category
+
+
+class TestUpdateNote(DBTestCase):
+
+    @pytest.fixture
+    def schema(self):
+        return factories.create_avro_schema(
+            schema_json={
+                "type": "record", "name": "foo", "doc": "foo",
+                "fields": [{"name": "bar", "type": "int", "doc": "bar"}]
+            },
+        )
+
+    @pytest.fixture
+    def initial_note(self, schema):
+        return factories.create_note(
+            reference_type=models.ReferenceTypeEnum.SCHEMA,
+            reference_id=schema.id,
+            note_text='initial notes',
+            last_updated_by='test_dev1@example.com'
+        )
+
+    def test_update_existing_note(self, schema, initial_note):
+        actual = doc_tool.update_note(
+            note_id=initial_note.id,
+            note_text='new notes',
+            last_updated_by='test_dev2@example.com'
+        )
+        expected = utils.get_entity_by_id(models.Note, initial_note.id)
+        asserts.assert_equal_note(actual, expected)
+
+    def test_note_id_does_not_exist(self, schema, initial_note):
+        with pytest.raises(EntityNotFoundError):
+            doc_tool.update_note(
+                note_id=0,
+                note_text='new notes',
+                last_updated_by='test_dev2@example.com'
+            )

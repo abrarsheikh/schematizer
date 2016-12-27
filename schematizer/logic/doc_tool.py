@@ -79,6 +79,20 @@ def get_notes_by_schemas_and_elements(schemas, elements):
     ).order_by(models.Note.id).all()
 
 
+def update_note(note_id, note_text, last_updated_by):
+    """Update the note of specified note id.
+
+    Raises:
+        :class:schematizer.models.exceptions.EntityNotFoundError is thrown if
+        the given `note_id` is not found.
+    """
+    note = models.Note.get_by_id(note_id)
+    note.note = note_text
+    note.last_updated_by = last_updated_by
+    session.flush()
+    return note
+
+
 def create_note(reference_type, reference_id, note_text, last_updated_by):
     note = models.Note(
         reference_type=reference_type,
