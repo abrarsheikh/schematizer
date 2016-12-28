@@ -122,8 +122,8 @@ def register_avro_schema_from_avro_json(
             new schema is derived from
         docs_required (bool, optional): whether to-be-registered schema must
             contain doc strings
-        alias (str, optional): abel for the schema. (namespace, source, alias) combination
-            uniquely identifies a schema
+        alias (str, optional): label for the schema. (namespace, source, alias)
+            combination uniquely identifies a schema
 
     Return:
         New created AvroSchema object.
@@ -159,12 +159,18 @@ def register_avro_schema_from_avro_json(
         with read_only_conn:
             source = get_source_by_fullname(namespace_name, source_name)
             if source:
-                # source_id = source.id if source else None
                 if alias:
-                    avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
+                    avro_schema = _get_schema_by_source_id_and_alias(
+                        source.id,
+                        alias
+                    )
                     if avro_schema:
                         topic = models.Topic.get_by_id(avro_schema.topic_id)
-                        if (_is_same_schema(avro_schema, avro_schema_json, source.id)
+                        if (_is_same_schema(
+                                avro_schema,
+                                avro_schema_json,
+                                source.id
+                        ) and avro_schema.base_schema_id == base_schema_id
                                 and topic.contains_pii == contains_pii):
                             return avro_schema
                         raise ValueError(
@@ -199,6 +205,7 @@ def register_avro_schema_from_avro_json(
         if avro_schema:
             topic = models.Topic.get_by_id(avro_schema.topic_id)
             if (_is_same_schema(avro_schema, avro_schema_json, source.id)
+                    and avro_schema.base_schema_id == base_schema_id
                     and topic.contains_pii == contains_pii):
                 return avro_schema
             raise ValueError(
@@ -271,9 +278,6 @@ def _get_topic_candidates(
     contains_pii,
     cluster_type
 ):
-    # source = get_source_by_fullname(namespace_name, source_name)
-    # if not source_id:
-    #     return []
     query = session.query(models.Topic).join(models.AvroSchema).filter(
         models.Topic.source_id == source_id,
         models.Topic.cluster_type == cluster_type,
@@ -294,10 +298,6 @@ def _get_schema_if_exists(
 ):
     if not topic_candidates:
         return None
-
-    # meta_attr_mappings = {
-    #     o for o in meta_attr_repo.get_meta_attributes_by_source(source_id)
-    # }
 
     # TODO: change to check all the schemas of topic candidates instead of
     # latest one.

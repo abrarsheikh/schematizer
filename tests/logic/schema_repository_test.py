@@ -855,14 +855,24 @@ class TestRegisterSchema(DBTestCase):
             "pkey": ["id"]
         }
 
-    def test_register_new_avro_schema_json(self):
-        actual = self._register_avro_schema(self.avro_schema_json)
+    @pytest.fixture(params=[None, 'simple_schema_alias'])
+    def alias(self, request):
+        return request.param
+
+    def test_register_new_avro_schema_json(self, alias):
+        actual = self._register_avro_schema(self.avro_schema_json, alias=alias)
         expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
         asserts.assert_equal_avro_schema(actual, expected)
 
-    def test_register_same_schema_twice(self):
-        schema_one = self._register_avro_schema(self.avro_schema_json)
-        schema_two = self._register_avro_schema(self.avro_schema_json)
+    def test_register_same_schema_twice(self, alias):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            alias=alias
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            alias=alias
+        )
         asserts.assert_equal_avro_schema(schema_one, schema_two)
 
     def test_register_same_schema_in_diff_namespace(self):
@@ -915,6 +925,25 @@ class TestRegisterSchema(DBTestCase):
             schema_one.topic.source, schema_two.topic.source
         )
 
+    def test_register_same_schema_with_alias_with_diff_base_schema(
+        self
+    ):
+        alias = "simple_schema_alias"
+        self._register_avro_schema(
+            self.avro_schema_json,
+            base_schema_id=None,
+            alias=alias
+        )
+        with pytest.raises(ValueError) as err:
+            self._register_avro_schema(
+                self.avro_schema_json,
+                base_schema_id=10,
+                alias=alias
+            )
+        assert err.value.message == (
+            "ALIAS `{}` has already been taken.".format(alias)
+        )
+
     def test_register_schema_with_different_pii(self):
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
@@ -927,6 +956,37 @@ class TestRegisterSchema(DBTestCase):
         assert schema_one.topic.id != schema_two.topic.id
         asserts.assert_equal_source(
             schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_register_schema_with_alias_with_different_pii(self):
+        alias = "simple_schema_alias"
+        self._register_avro_schema(
+            self.avro_schema_json,
+            contains_pii=False,
+            alias=alias
+        )
+        with pytest.raises(ValueError) as err:
+            self._register_avro_schema(
+                self.avro_schema_json,
+                contains_pii=True,
+                alias=alias
+            )
+        assert err.value.message == (
+            "ALIAS `{}` has already been taken.".format(alias)
+        )
+
+    def test_register_same_schema_with_different_aliases(self):
+        self._register_avro_schema(
+            self.avro_schema_json,
+            alias="alias_one"
+        )
+        with pytest.raises(ValueError) as err:
+            self._register_avro_schema(
+                self.avro_schema_json,
+                alias="alias_two"
+            )
+        assert err.value.message == (
+            "Same schema with a different ALIAS already exists."
         )
 
     def test_register_schema_with_pkey_added(self):
@@ -1020,14 +1080,16 @@ class TestRegisterSchema(DBTestCase):
             schema_one.topic.source, schema_two.topic.source
         )
 
-    def test_register_same_schema_with_same_base_schema(self):
+    def test_register_same_schema_with_same_base_schema(self, alias):
         result_a1 = self._register_avro_schema(
             self.avro_schema_json,
-            base_schema_id=10
+            base_schema_id=10,
+            alias=alias
         )
         result_a2 = self._register_avro_schema(
             self.avro_schema_json,
-            base_schema_id=10
+            base_schema_id=10,
+            alias=alias
         )
         asserts.assert_equal_avro_schema(result_a1, result_a2)
 
