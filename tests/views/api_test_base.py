@@ -21,7 +21,6 @@ import pytest
 from pyramid import httpexceptions
 
 from schematizer import models
-from schematizer.helpers.formatting import _format_datetime
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.models.meta_attribute_mapping_store import (
     MetaAttributeMappingStore)
@@ -127,8 +126,8 @@ class ApiTestBase(DBTestCase):
             'data_target': self.get_expected_data_target_resp(
                 group.data_target.id
             ),
-            'created_at': _format_datetime(group.created_at),
-            'updated_at': _format_datetime(group.updated_at)
+            'created_at': _format_timestamp(group.created_at),
+            'updated_at': _format_timestamp(group.updated_at)
         }
         if overrides:
             expected.update(overrides)
@@ -148,8 +147,8 @@ class ApiTestBase(DBTestCase):
             'consumer_group_id': data_source.consumer_group.id,
             'data_source_type': data_source.data_source_type,
             'data_source_id': data_source.data_source_id,
-            'created_at': _format_datetime(data_source.created_at),
-            'updated_at': _format_datetime(data_source.updated_at)
+            'created_at': _format_timestamp(data_source.created_at),
+            'updated_at': _format_timestamp(data_source.updated_at)
         }
         if overrides:
             expected.update(overrides)
@@ -166,9 +165,11 @@ class ApiTestBase(DBTestCase):
         expected_entity_type = (mappings[0].entity_type + '_id').lower()
         expected_entity_id = mappings[0].entity_id
         return [
-            {expected_entity_type: expected_entity_id,
-             'meta_attribute_schema_id': mapping.meta_attr_schema_id
-             } for mapping in mappings]
+            {
+                expected_entity_type: expected_entity_id,
+                'meta_attribute_schema_id': mapping.meta_attr_schema_id
+            } for mapping in mappings
+        ]
 
     @classmethod
     def get_http_exception(cls, http_status_code):

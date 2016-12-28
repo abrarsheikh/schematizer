@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from sqlalchemy import Column
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
 
@@ -24,8 +25,13 @@ class DataSourceTargetMapping(Base, BaseModel):
     # Id of the data target that maps to one or more data sources
     data_target_id = Column(Integer, nullable=False)
 
-    # Timestamp when the entry was created
-    created_at = Column(Integer, nullable=False)
+    # Timestamp when the entry is created
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
-    # Timestamp when the entry was last updated
-    updated_at = Column(Integer, nullable=False)
+    # Timestamp when the entry is last updated
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
+    )

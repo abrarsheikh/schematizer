@@ -16,14 +16,15 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import datetime
-
-import mock
 import pytest
 
 from schematizer import models
 from schematizer.logic import doc_tool
+from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer_testing import asserts
 from schematizer_testing import factories
+from schematizer_testing import utils
 from tests.models.testing_db import DBTestCase
 
 
@@ -44,10 +45,6 @@ class TestDocTool(DBTestCase):
     @property
     def user_email(self):
         return "user@yelp.com"
-
-    @property
-    def test_date(self):
-        return datetime.datetime(2015, 9, 4, 17, 37, 0)
 
     @pytest.fixture
     def topic(self):
@@ -114,17 +111,6 @@ class TestDocTool(DBTestCase):
             self.source_bar
         )
 
-    @pytest.yield_fixture
-    def mock_utcnow(self):
-        with mock.patch.object(
-            doc_tool,
-            'datetime',
-        ) as mock_datetime:
-            mock_datetime.datetime.utcnow = mock.Mock(
-                return_value=self.test_date
-            )
-            yield
-
     @property
     def category(self):
         return 'Business Info'
@@ -189,19 +175,6 @@ class TestDocTool(DBTestCase):
         )
         self.assert_equal_note_partial(expected_note, actual_note)
 
-    def test_update_schema_note(self, schema_note, mock_utcnow):
-        new_text = "This is new text"
-        new_user = "user2@yelp.com"
-        doc_tool.update_note(schema_note.id, new_text, new_user)
-        expected_note = models.Note(
-            reference_type=models.ReferenceTypeEnum.SCHEMA,
-            reference_id=schema_note.reference_id,
-            note=new_text,
-            last_updated_by=new_user,
-            updated_at=self.test_date
-        )
-        self.assert_equal_note_update(expected_note, schema_note)
-
     def test_create_schema_element_note(self, schema_element):
         actual_note = doc_tool.create_note(
             models.ReferenceTypeEnum.SCHEMA_ELEMENT,
@@ -216,23 +189,6 @@ class TestDocTool(DBTestCase):
             last_updated_by=self.user_email,
         )
         self.assert_equal_note_partial(expected_note, actual_note)
-
-    def test_update_schema_element_note(
-        self,
-        schema_element_note,
-        mock_utcnow
-    ):
-        new_text = "This is new text"
-        new_user = "user2@yelp.com"
-        doc_tool.update_note(schema_element_note.id, new_text, new_user)
-        expected_note = models.Note(
-            reference_type=schema_element_note.reference_type,
-            reference_id=schema_element_note.reference_id,
-            note=new_text,
-            last_updated_by=new_user,
-            updated_at=self.test_date
-        )
-        self.assert_equal_note_update(expected_note, schema_element_note)
 
     def test_get_distinct_categories(self, source_category):
         actual = doc_tool.get_distinct_categories()
@@ -316,3 +272,56 @@ class TestDocTool(DBTestCase):
     def assert_equal_source_category_partial(self, expected, actual):
         assert expected.source_id == actual.source_id
         assert expected.category == actual.category
+
+
+class TestUpdateNote(DBTestCase):
+
+    @pytest.fixture
+    def schema(self):
+        return factories.create_avro_schema(
+            schema_json={
+                "type": "record", "name": "foo", "doc": "foo",
+                "fields": [{"name": "bar", "type": "int", "doc": "bar"}]
+            },
+        )
+
+    @pytest.fixture
+    def schema_element(self, schema):
+        return session.query(models.AvroSchemaElement).filter(
+            models.AvroSchemaElement.avro_schema_id == schema.id
+        ).first()
+
+    def test_update_existing_schema_note(self, schema):
+        self._test_update_existing_note(
+            reference_type=models.ReferenceTypeEnum.SCHEMA,
+            reference_id=schema.id
+        )
+
+    def test_update_existing_element_note(self, schema_element):
+        self._test_update_existing_note(
+            reference_type=models.ReferenceTypeEnum.SCHEMA_ELEMENT,
+            reference_id=schema_element.id
+        )
+
+    def _test_update_existing_note(self, reference_type, reference_id):
+        initial_note = factories.create_note(
+            reference_type=reference_type,
+            reference_id=reference_id,
+            note_text='initial notes',
+            last_updated_by='test_dev1@example.com'
+        )
+        actual = doc_tool.update_note(
+            note_id=initial_note.id,
+            note_text='new notes',
+            last_updated_by='test_dev2@example.com'
+        )
+        expected = utils.get_entity_by_id(models.Note, initial_note.id)
+        asserts.assert_equal_note(actual, expected)
+
+    def test_note_id_does_not_exist(self, schema):
+        with pytest.raises(EntityNotFoundError):
+            doc_tool.update_note(
+                note_id=0,
+                note_text='new notes',
+                last_updated_by='test_dev2@example.com'
+            )

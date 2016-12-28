@@ -83,6 +83,12 @@ def assert_equal_consumer_group_data_source(actual, expected):
     assert_equal_consumer_group(actual.consumer_group, expected.consumer_group)
 
 
+def assert_equal_note(actual, expected):
+    attrs = ('id', 'reference_type', 'reference_id', 'note', 'last_updated_by',
+             'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
 def assert_equal_entity_list(actual_list, expected_list, assert_func):
     assert len(actual_list) == len(expected_list)
     for expected, actual in zip(expected_list, actual_list):
