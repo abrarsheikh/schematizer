@@ -1222,21 +1222,27 @@ class TestRegisterSchema(DBTestCase):
 
     @pytest.mark.parametrize("empty_email", [(None), (' ')])
     def test_register_schema_with_empty_owner_email(self, empty_email):
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
                 source_owner_email=empty_email
             )
-        assert str(e.value) == "Source owner email must be non-empty."
 
-    @pytest.mark.parametrize("empty_src_name", [(None), (' ')])
-    def test_register_schema_with_empty_src_name(self, empty_src_name):
-        with pytest.raises(ValueError) as e:
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_namespace_name(self, invalid_name):
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
-                source_name=empty_src_name
+                namespace_name=invalid_name
             )
-        assert str(e.value) == "Source name must be non-empty."
+
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_source_name(self, invalid_name):
+        with pytest.raises(ValueError):
+            self._register_avro_schema(
+                self.avro_schema_json,
+                source_name=invalid_name
+            )
 
     def _register_avro_schema(self, avro_schema_json, **overrides):
         params = {
