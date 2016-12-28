@@ -23,7 +23,6 @@ LATEST_SCHEMA_NOT_FOUND_ERROR_MESSAGE = 'Latest schema is not found.'
 LATEST_TOPIC_NOT_FOUND_ERROR_MESSAGE = 'Latest topic is not found.'
 TOPIC_NOT_FOUND_ERROR_MESSAGE = 'Topic is not found.'
 INVALID_AVRO_SCHEMA_ERROR = 'Invalid Avro schema.'
-NOTE_NOT_FOUND_ERROR_MESSAGE = 'Note is not found.'
 CATEGORY_NOT_FOUND_ERROR_MESSAGE = 'Category not found for the given source'
 UNSUPPORTED_TARGET_SCHEMA_MESSAGE = 'Desired target schema type is unsupported'
 
@@ -58,10 +57,6 @@ def invalid_request_exception(err_message='Invalid request.'):
 
 def unprocessable_entity_exception(err_message='Unprocessable Entity.'):
     return httpexceptions.exception_response(422, detail=err_message)
-
-
-def note_not_found_exception(err_message=NOTE_NOT_FOUND_ERROR_MESSAGE):
-    return httpexceptions.exception_response(404, detail=err_message)
 
 
 def category_not_found_exception(err_message=CATEGORY_NOT_FOUND_ERROR_MESSAGE):
