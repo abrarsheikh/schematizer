@@ -29,7 +29,6 @@ from schematizer.models import mysql_data_types
 from schematizer.models.sql_entities import MetaDataKey
 from schematizer.models.sql_entities import SQLColumn
 from schematizer.models.sql_entities import SQLTable
-from schematizer_testing.models.mysql_data_types import MySQLUnsupportedType
 
 
 class TestMySQLToAvroConverter(object):
@@ -421,8 +420,11 @@ class TestMySQLToAvroConverter(object):
         )
 
     def test_convert_with_unsupported_type(self, converter):
+        class FooMySQLType(object):
+            type_name = 'foo_mysql_type'
+
         with pytest.raises(UnsupportedTypeException):
-            column = SQLColumn('col', MySQLUnsupportedType())
+            column = SQLColumn('col', FooMySQLType())
             sql_table = SQLTable(self.table_name, [column])
             converter.convert(sql_table)
 

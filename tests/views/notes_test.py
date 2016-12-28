@@ -19,8 +19,7 @@ from __future__ import unicode_literals
 import pytest
 
 from schematizer import models
-from schematizer.api.exceptions import exceptions_v1
-from schematizer.helpers.formatting import _format_datetime
+from schematizer.helpers.formatting import _format_timestamp
 from schematizer.models.note import ReferenceTypeEnum
 from schematizer.views import notes as note_views
 from schematizer_testing import factories
@@ -49,8 +48,8 @@ class NotesViewTestBase(ApiTestBase):
             'reference_type': ref_type,
             'note': note_text,
             'last_updated_by': updated_by,
-            'created_at': _format_datetime(note.created_at),
-            'updated_at': _format_datetime(note.updated_at)
+            'created_at': _format_timestamp(note.created_at),
+            'updated_at': _format_timestamp(note.updated_at)
         }
 
 
@@ -90,7 +89,21 @@ class TestCreateNote(NotesViewTestBase):
             note_views.create_note(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.REFERENCE_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'AvroSchema id 0 not found.'
+
+    def test_invalid_reference_type(self, mock_request, biz_schema):
+        mock_request.json_body = {
+            'reference_id': biz_schema.id,
+            'reference_type': 'bad_type',
+            'note': self.note_text,
+            'last_updated_by': self.user_email
+        }
+        expected_exception = self.get_http_exception(400)
+        with pytest.raises(expected_exception) as e:
+            note_views.create_note(mock_request)
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == ('reference_type bad_type is invalid. It must '
+                                'be one of the values: schema, schema_element')
 
 
 class TestUpdateNote(NotesViewTestBase):
@@ -141,4 +154,4 @@ class TestUpdateNote(NotesViewTestBase):
             note_views.update_note(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.NOTE_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'Note id 0 not found.'

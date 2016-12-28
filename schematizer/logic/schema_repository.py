@@ -25,7 +25,6 @@ from sqlalchemy import exc
 from sqlalchemy.orm import exc as orm_exc
 
 from schematizer import models
-from schematizer.components.converters.converter_base import BaseConverter
 from schematizer.config import log
 from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
@@ -68,31 +67,6 @@ def is_full_compatible(old_schema_json, new_schema_json):
     """
     return (is_backward_compatible(old_schema_json, new_schema_json) and
             is_forward_compatible(old_schema_json, new_schema_json))
-
-
-def _load_converters():
-    __import__(
-        'schematizer.components.converters',
-        fromlist=[str('converters')]
-    )
-    _converters = dict()
-    for cls in BaseConverter.__subclasses__():
-        _converters[(cls.source_type, cls.target_type)] = cls
-    return _converters
-
-
-converters = _load_converters()
-
-
-def convert_schema(source_type, target_type, source_schema):
-    """Convert the source type schema to the target type schema. The
-    source_type and target_type are the SchemaKindEnum.
-    """
-    converter = converters.get((source_type, target_type))
-    if not converter:
-        raise Exception("Unable to find converter to convert from {0} to {1}."
-                        .format(source_type, target_type))
-    return converter().convert(source_schema)
 
 
 def register_avro_schema_from_avro_json(
@@ -578,16 +552,6 @@ def _create_avro_schema(
     return avro_schema
 
 
-def get_schema_by_id(schema_id):
-    """Get the Avro schema of specified id. It returns None if not found.
-    """
-    return session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.id == schema_id
-    ).first()
-
-
 def get_latest_schema_by_topic_id(topic_id):
     """Get the latest enabled (Read-Write or Read-Only) schema of given topic.
     It returns None if no such schema can be found.
@@ -679,14 +643,6 @@ def get_topics_by_source_id(source_id):
     ).all()
 
 
-def get_source_by_id(source_id):
-    return session.query(
-        models.Source
-    ).filter(
-        models.Source.id == source_id
-    ).first()
-
-
 def get_latest_topic_of_source_id(source_id):
     return session.query(
         models.Topic
@@ -726,14 +682,6 @@ def create_refresh(
     session.add(refresh)
     session.flush()
     return refresh
-
-
-def get_schema_element_by_id(schema_id):
-    return session.query(
-        models.AvroSchemaElement
-    ).filter(
-        models.AvroSchemaElement.id == schema_id
-    ).first()
 
 
 def get_schema_elements_by_schema_id(schema_id):

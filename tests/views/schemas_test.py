@@ -23,7 +23,6 @@ import pytest
 import simplejson
 
 from schematizer import models
-from schematizer.api.exceptions import exceptions_v1
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views
 from schematizer_testing import factories
@@ -39,7 +38,7 @@ class TestGetSchemaByID(ApiTestBase):
             schema_views.get_schema_by_id(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.SCHEMA_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'AvroSchema id 0 not found.'
 
     def test_get_schema_by_id(self, mock_request, biz_schema):
         mock_request.matchdict = {'schema_id': str(biz_schema.id)}
@@ -462,7 +461,7 @@ class TestGetSchemaElements(ApiTestBase):
             schema_views.get_schema_elements_by_schema_id(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exceptions_v1.SCHEMA_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'AvroSchema id 0 not found.'
 
     def test_get_schema_elements(self, mock_request, biz_schema):
         mock_request.matchdict = {'schema_id': str(biz_schema.id)}
@@ -576,4 +575,4 @@ class TestGetDataTaragetsBySchemaID(ApiTestBase):
             schema_views.get_schema_by_id(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == 'Schema is not found.'
+        assert str(e.value) == 'AvroSchema id 0 not found.'
