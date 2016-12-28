@@ -36,9 +36,9 @@ from schematizer.models.source import Source
 )
 @transform_api_response()
 def list_sources(request):
-    req = requests_v1.GetSourcesRequest(request.params)
+    page_info = requests_v1.get_pagination_info(request.params)
     return [responses_v1.get_source_response_from_source(src)
-            for src in Source.get_all(req.page_info)]
+            for src in Source.get_all(page_info)]
 
 
 @view_config(
@@ -94,15 +94,15 @@ def update_category(request):
     source_id = int(request.matchdict.get('source_id'))
     _assert_source_exists(source_id)
 
-    req = requests_v1.UpdateCategoryRequest(**request.json_body)
     source_category = doc_tool.get_source_category_by_source_id(source_id)
+    new_category = request.json_body['category']
     if source_category is None:
         source_category = doc_tool.create_source_category(
             source_id,
-            req.category
+            category=new_category
         )
     else:
-        doc_tool.update_source_category(source_id, req.category)
+        doc_tool.update_source_category(source_id, new_category)
     return responses_v1.get_category_response_from_source_category(
         source_category
     )
@@ -137,14 +137,14 @@ def create_refresh(request):
     source_id = int(request.matchdict.get('source_id'))
     _assert_source_exists(source_id)
 
-    req = requests_v1.CreateRefreshRequest(**request.json_body)
+    request_body = request.json_body
     refresh = schema_repository.create_refresh(
         source_id=source_id,
-        offset=req.offset,
-        batch_size=req.batch_size,
-        priority=req.priority,
-        filter_condition=req.filter_condition,
-        avg_rows_per_second_cap=req.avg_rows_per_second_cap
+        offset=request_body.get('offset'),
+        batch_size=request_body.get('batch_size'),
+        priority=request_body.get('priority'),
+        filter_condition=request_body.get('filter_condition'),
+        avg_rows_per_second_cap=request_body.get('avg_rows_per_second_cap')
     )
     return responses_v1.get_refresh_response_from_refresh(refresh)
 
