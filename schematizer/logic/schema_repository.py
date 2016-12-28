@@ -25,7 +25,6 @@ from sqlalchemy import exc
 from sqlalchemy.orm import exc as orm_exc
 
 from schematizer import models
-from schematizer.components.converters.converter_base import BaseConverter
 from schematizer.config import log
 from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
@@ -68,31 +67,6 @@ def is_full_compatible(old_schema_json, new_schema_json):
     """
     return (is_backward_compatible(old_schema_json, new_schema_json) and
             is_forward_compatible(old_schema_json, new_schema_json))
-
-
-def _load_converters():
-    __import__(
-        'schematizer.components.converters',
-        fromlist=[str('converters')]
-    )
-    _converters = dict()
-    for cls in BaseConverter.__subclasses__():
-        _converters[(cls.source_type, cls.target_type)] = cls
-    return _converters
-
-
-converters = _load_converters()
-
-
-def convert_schema(source_type, target_type, source_schema):
-    """Convert the source type schema to the target type schema. The
-    source_type and target_type are the SchemaKindEnum.
-    """
-    converter = converters.get((source_type, target_type))
-    if not converter:
-        raise Exception("Unable to find converter to convert from {0} to {1}."
-                        .format(source_type, target_type))
-    return converter().convert(source_schema)
 
 
 def register_avro_schema_from_avro_json(
