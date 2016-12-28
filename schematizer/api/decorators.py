@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -8,6 +22,7 @@ from pyramid.httpexceptions import exception_response
 from pyramid.httpexceptions import HTTPException
 
 from schematizer.config import log
+from schematizer.helpers.formatting import _format_datetime
 
 
 def log_api(logger=None):
@@ -49,7 +64,7 @@ def _transform_datetime_field(response):
     if isinstance(response, dict):
         for key, value in response.iteritems():
             if isinstance(value, datetime):
-                response[key] = value.isoformat()
+                response[key] = _format_datetime(value)
             elif isinstance(value, dict):
                 _transform_datetime_field(value)
 
@@ -60,7 +75,7 @@ def _dict_filter_out_none_values(input_dict):
     dict responses with None values, since `null` entries aren't supported by
     the swagger schema.
 
-    See https://jira.yelpcorp.com/browse/PSHIP-4692 for more info.
+    See PSHIP-4692 for more info.
     """
     if isinstance(input_dict, dict):
         for key in input_dict.keys():

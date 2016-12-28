@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 """ This module spins up a Schematizer container and registers all the
 mysql tables against the container to test how many tables can be
 successfully registered with the Schematizer. It picks up the database
@@ -20,8 +34,8 @@ from contextlib import contextmanager
 import pymysql
 import requests
 import simplejson
+import yaml
 from docker import Client
-from yelp_conn.topology import TopologyFile
 
 
 TableInfo = namedtuple('TableInfo', 'table_name, create_table_stmt columns')
@@ -51,6 +65,13 @@ def _setup_cli_options():
         help='Name of the cluster to connect to, such as primary, aux, etc. '
              'Required.'
     )
+    parser.add_argument(
+        '--docker-file',
+        type=str,
+        default='docker-compose.yml',
+        help='Docker compose file for building Schematizer container. '
+             'Default is %(default)s.'
+    )
     return parser
 
 
@@ -61,7 +82,7 @@ def run(parsed_args):
     )
     with _setup_mysql_connection(conn_param) as conn:
         tables_info = _get_mysql_tables_info(conn)
-    with _setup_schematizer_container() as host:
+    with _setup_schematizer_container(parsed_args.docker_file) as host:
         register_tables_results = _register_tables(host, tables_info)
     results_stats = _verify_register_tables_results(register_tables_results)
     _output_results(results_stats)
@@ -72,8 +93,22 @@ def _get_connection_param_from_topology(topology_file, cluster):
     connection params for the given cluster replica ('slave') pair. Throws
     exception if the given cluster, replica pair is not part of this
     toplogy file """
-    topology = TopologyFile.new_from_file(topology_file)
-    return topology.get_first_connection_param(cluster, 'slave')
+    with open(topology_file) as f:
+        topology = f.read()
+    db_config = yaml.load(topology)
+    return _get_cluster_config(db_config, cluster, 'slave')
+
+
+def _get_cluster_config(db_config, cluster, replica):
+    for topo_item in db_config.get('topology'):
+        if (topo_item.get('cluster') == cluster and
+                topo_item.get('replica') == replica):
+            return topo_item['entries'][0]
+    raise ValueError(
+        "Database configuration for {cluster_name} not found.".format(
+            cluster_name=cluster
+        )
+    )
 
 
 @contextmanager
@@ -134,17 +169,38 @@ def _execute_query(connection, query):
 
 
 @contextmanager
-def _setup_schematizer_container():
+def _setup_schematizer_container(docker_compose_file):
     """Set up a scheamtizer container and yields the IP address of the host
     container. It removes the container when exiting the context manager.
     """
     project = 'schematizermanualtest{}'.format(getpass.getuser())
     service = 'schematizerservice'
+
+    project_arg = '--project-name={}'.format(project)
+    docker_compose_file_arg = '--file={}'.format(docker_compose_file)
     try:
         _run_docker_compose_command(
-            '--project-name={}'.format(project),
+            project_arg,
+            docker_compose_file_arg,
+            'pull'
+        )
+        _run_docker_compose_command(
+            project_arg,
+            docker_compose_file_arg,
+            'rm',
+            '--force'
+        )
+        _run_docker_compose_command(
+            project_arg,
+            docker_compose_file_arg,
+            'build'
+        )
+        _run_docker_compose_command(
+            project_arg,
+            docker_compose_file_arg,
             'up',
             '-d',
+            '--no-build',
             service
         )
         container_id = _ensure_containers_up(project, service)
@@ -154,11 +210,13 @@ def _setup_schematizer_container():
 
     finally:
         _run_docker_compose_command(
-            '--project-name={}'.format(project),
+            project_arg,
+            docker_compose_file_arg,
             'kill'
         )
         _run_docker_compose_command(
-            '--project-name={}'.format(project),
+            project_arg,
+            docker_compose_file_arg,
             'rm',
             '--force'
         )

@@ -1,0 +1,18 @@
+schematizerdatabase:
+    build: schema/
+
+schematizerconfigs:
+    build: acceptance/configs/
+
+schematizerservice:
+    build: .
+    dockerfile: Dockerfile-opensource
+    links:
+        - schematizerdatabase
+    volumes_from:
+        - schematizerconfigs
+    ports:
+        - "49257:8888"
+    environment:
+      - SERVICE_CONFIG_PATH=config-open-source.yaml
+      - FORCE_AVOID_INTERNAL_PACKAGES=True

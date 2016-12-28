@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -16,6 +30,20 @@ log = logging.getLogger('schematizer')
 class Config(object):
 
     __metaclass__ = Singleton
+
+    @property
+    def schematizer_cluster(self):
+        return staticconf.get(
+            'schematizer_cluster',
+            default='schematizer'
+        )
+
+    @property
+    def topology_path(self):
+        return staticconf.get(
+            'topology_path',
+            default='topology.yaml'
+        )
 
     @cached_property
     def namespace_no_doc_required(self):
@@ -43,6 +71,21 @@ def routes(config):
     config.add_route(
         'api.v1.list_refreshes_by_namespace',
         '/v1/namespaces/{namespace}/refreshes'
+    )
+    config.add_route(
+        'api.v1.register_namespace_meta_attribute_mapping',
+        '/v1/namespaces/{namespace}/meta_attr_mappings',
+        request_method="POST"
+    )
+    config.add_route(
+        'api.v1.delete_namespace_meta_attribute_mapping',
+        '/v1/namespaces/{namespace}/meta_attr_mappings',
+        request_method="DELETE"
+    )
+    config.add_route(
+        'api.v1.get_namespace_meta_attribute_mappings',
+        '/v1/namespaces/{namespace}/meta_attr_mappings',
+        request_method="GET"
     )
     config.add_route(
         'api.v1.list_sources',
@@ -78,6 +121,21 @@ def routes(config):
     config.add_route(
         'api.v1.list_refreshes_by_source_id',
         '/v1/sources/{source_id}/refreshes',
+        request_method="GET"
+    )
+    config.add_route(
+        'api.v1.register_source_meta_attribute_mapping',
+        '/v1/sources/{source_id}/meta_attr_mappings',
+        request_method="POST"
+    )
+    config.add_route(
+        'api.v1.delete_source_meta_attribute_mapping',
+        '/v1/sources/{source_id}/meta_attr_mappings',
+        request_method="DELETE"
+    )
+    config.add_route(
+        'api.v1.get_source_meta_attribute_mappings',
+        '/v1/sources/{source_id}/meta_attr_mappings',
         request_method="GET"
     )
     config.add_route(
@@ -117,6 +175,10 @@ def routes(config):
     config.add_route(
         'api.v1.get_data_targets_by_schema_id',
         '/v1/schemas/{schema_id}/data_targets'
+    )
+    config.add_route(
+        'api.v1.get_meta_attributes_by_schema_id',
+        '/v1/schemas/{schema_id}/meta_attributes'
     )
     config.add_route(
         'api.v1.is_avro_schema_compatible',
@@ -167,6 +229,11 @@ def routes(config):
         request_method="GET"
     )
     config.add_route(
+        'api.v1.get_data_target_by_name',
+        '/v1/data_targets/name/{data_target_name}',
+        request_method="GET"
+    )
+    config.add_route(
         'api.v1.get_consumer_groups_by_data_target_id',
         '/v1/data_targets/{data_target_id}/consumer_groups',
         request_method="GET"
@@ -206,7 +273,7 @@ def routes(config):
     config.add_route(
         'api.v1.get_schema_migration',
         '/v1/schema_migrations',
-        request_method="GET"
+        request_method="POST"
     )
 
     config.add_route(

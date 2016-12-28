@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -20,7 +34,6 @@ RESTRICTED_CHAR_ERROR_MESSAGE = (
     'restricted character: |'
 )
 NUMERIC_NAME_ERROR_MESSAGE = 'Source or Namespace name should not be numeric'
-REFRESH_NOT_FOUND_ERROR_MESSAGE = 'Refresh not found for the given refresh id'
 ENTITY_NOT_FOUND_ERROR = 'Entity not found.'
 UNSUPPORTED_TARGET_SCHEMA_MESSAGE = 'Desired target schema type is unsupported'
 EMPTY_SRC_NAME_ERROR = 'Source name must be non-empty.'
@@ -90,12 +103,6 @@ def numeric_name_exception(
         err_message=NUMERIC_NAME_ERROR_MESSAGE
 ):
     return httpexceptions.exception_response(400, detail=err_message)
-
-
-def refresh_not_found_exception(
-        err_message=REFRESH_NOT_FOUND_ERROR_MESSAGE
-):
-    return httpexceptions.exception_response(404, detail=err_message)
 
 
 def unsupported_target_schema_exception(

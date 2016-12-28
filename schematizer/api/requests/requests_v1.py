@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -9,16 +23,13 @@ from cached_property import cached_property
 
 from schematizer.models.page_info import PageInfo
 
+DEFAULT_KAFKA_CLUSTER_TYPE = 'datapipe'
+
 
 # TODO [clin|DATAPIPE-1433] remove these request classes and only keep common
 # helper functions to reduce extra development work. Please do not add more
 # such classes when adding new api endpoints.
 class RequestBase(object):
-
-    @classmethod
-    def create_from_string(cls, request_body_string):
-        request_json = simplejson.loads(request_body_string)
-        return cls(**request_json)
 
     @classmethod
     def _get_datetime(cls, request_timestamp):
@@ -48,6 +59,7 @@ class RegisterSchemaRequest(RequestBase):
         source,
         source_owner_email,
         contains_pii=False,
+        cluster_type=DEFAULT_KAFKA_CLUSTER_TYPE,
         base_schema_id=None
     ):
         super(RegisterSchemaRequest, self).__init__()
@@ -57,6 +69,7 @@ class RegisterSchemaRequest(RequestBase):
         self.source_owner_email = source_owner_email
         self.base_schema_id = base_schema_id
         self.contains_pii = contains_pii
+        self.cluster_type = cluster_type
 
     @cached_property
     def schema_json(self):
@@ -83,6 +96,7 @@ class RegisterSchemaFromMySqlRequest(RequestBase):
         self.source = source
         self.source_owner_email = source_owner_email
         self.contains_pii = contains_pii
+        self.cluster_type = DEFAULT_KAFKA_CLUSTER_TYPE
 
 
 class AvroSchemaCompatibilityRequest(RequestBase):
@@ -141,20 +155,6 @@ class UpdateCategoryRequest(RequestBase):
         self.category = category
 
 
-class GetSchemasRequest(RequestBase):
-
-    def __init__(self, query_params):
-        super(GetSchemasRequest, self).__init__()
-        self.created_after, self.created_after_datetime = self._get_datetime(
-            query_params.get('created_after')
-        )
-        self.page_info = PageInfo(
-            query_params.get('count'),
-            query_params.get('min_id')
-        )
-        self.include_disabled = query_params.get('include_disabled')
-
-
 class GetTopicsRequest(RequestBase):
 
     def __init__(self, query_params):
@@ -167,17 +167,6 @@ class GetTopicsRequest(RequestBase):
         self.page_info = PageInfo(
             query_params.get('count'),
             query_params.get('min_id')
-        )
-
-
-class GetRefreshesRequest(RequestBase):
-
-    def __init__(self, query_params):
-        super(GetRefreshesRequest, self).__init__()
-        self.namespace = query_params.get('namespace')
-        self.status = query_params.get('status')
-        self.created_after, self.created_after_datetime = self._get_datetime(
-            query_params.get('created_after')
         )
 
 
@@ -199,18 +188,11 @@ class CreateRefreshRequest(RequestBase):
         self.avg_rows_per_second_cap = avg_rows_per_second_cap
 
 
-class UpdateRefreshStatusRequest(RequestBase):
-
-    def __init__(self, status, offset):
-        super(UpdateRefreshStatusRequest, self).__init__()
-        self.status = status
-        self.offset = offset
-
-
 class CreateDataTargetRequest(RequestBase):
 
-    def __init__(self, target_type, destination):
+    def __init__(self, name, target_type, destination):
         super(CreateDataTargetRequest, self).__init__()
+        self.name = name
         self.target_type = target_type
         self.destination = destination
 
@@ -220,15 +202,6 @@ class CreateConsumerGroupRequest(RequestBase):
     def __init__(self, group_name):
         super(CreateConsumerGroupRequest, self).__init__()
         self.group_name = group_name
-
-
-class GetTopicsByDataTargetIdRequest(RequestBase):
-
-    def __init__(self, query_params):
-        super(GetTopicsByDataTargetIdRequest, self).__init__()
-        self.created_after, self.created_after_datetime = self._get_datetime(
-            query_params.get('created_after')
-        )
 
 
 class CreateConsumerGroupDataSourceRequest(RequestBase):

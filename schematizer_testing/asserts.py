@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 """
 This module contains the helper functions for testing assertions.
 
@@ -90,6 +104,12 @@ def assert_equal_entity_set(actual_set, expected_set, assert_func, id_attr):
         # actual entity set.
         expected_id = getattr(expected, id_attr)
         assert expected_id in actual_id_to_obj_map, err_msg.format(expected_id)
+
+
+def assert_equal_meta_attribute_mapping(actual, expected):
+    attrs = ('id', 'entity_type', 'entity_id', 'meta_attr_schema_id',
+             'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def _assert_equal_multi_attrs(expected_entity, actual_entity, *attrs):

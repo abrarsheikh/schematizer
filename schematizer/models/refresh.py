@@ -1,16 +1,30 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from enum import Enum
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
 
 from schematizer.models.base_model import BaseModel
 from schematizer.models.database import Base
-from schematizer.models.types.time import build_time_column
 
 
 class Priority(Enum):
@@ -23,11 +37,11 @@ class Priority(Enum):
 
 class RefreshStatus(Enum):
 
-    NOT_STARTED = 0
-    IN_PROGRESS = 1
-    PAUSED = 2
-    SUCCESS = 3
-    FAILED = 4
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    PAUSED = "PAUSED"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
 
 
 class Refresh(Base, BaseModel):
@@ -43,7 +57,7 @@ class Refresh(Base, BaseModel):
     )
 
     status = Column(
-        Integer,
+        String,
         default=RefreshStatus.NOT_STARTED.value,
         nullable=False
     )
@@ -69,13 +83,11 @@ class Refresh(Base, BaseModel):
         default=None
     )
 
-    created_at = build_time_column(
-        default_now=True,
-        nullable=False
-    )
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
-    updated_at = build_time_column(
-        default_now=True,
-        onupdate_now=True,
-        nullable=False
+    updated_at = Column(
+        Integer,
+        nullable=False,
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )

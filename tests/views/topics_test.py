@@ -1,8 +1,20 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
-
-from datetime import datetime
 
 import pytest
 
@@ -106,11 +118,17 @@ class TestGetTopicsByCriteria(ApiTestBase):
         actual = topic_views.get_topics_by_criteria(mock_request)
         assert actual == []
 
+    def test_get_topics_created_after_given_timestamp(
+        self, mock_request, biz_topic
+    ):
+        mock_request.params = {'created_after': biz_topic.created_at}
+        actual = topic_views.get_topics_by_criteria(mock_request)
+        assert actual == [self.get_expected_topic_resp(biz_topic.id)]
+
     def test_filter_by_namespace_and_time(self, mock_request, biz_topic):
         mock_request.params = {
             'namespace': biz_topic.source.namespace.name,
-            'created_after': (biz_topic.created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
+            'created_after': biz_topic.created_at
         }
         actual = topic_views.get_topics_by_criteria(mock_request)
         expected = [self.get_expected_topic_resp(biz_topic.id)]

@@ -33,19 +33,19 @@ docs:
 	tox -e docs
 
 test:
-	tox $(REBUILD_FLAG)
+	tox -c tox.ini $(REBUILD_FLAG)
 
 debug:
 	tox $(REBUILD_FLAG) -- -s
 
 itest: cook-image
-	paasta local-run -s schematizer -t
-	tox -e acceptance
+	paasta local-run -s schematizer -t --instance main --cluster everywhere-testopia
+	tox -c tox.ini -e acceptance
 
 DOCKER_TAG ?= schematizer-dev-$(USER)
 
 cook-image:
-	docker build -t $(DOCKER_TAG) .
+	docker build --file=Dockerfile -t $(DOCKER_TAG) .
 
 export GIT_SHA ?= $(shell git rev-parse --short HEAD)
 
@@ -54,3 +54,7 @@ docker-push:
 
 install-hooks:
 	tox -e pre-commit -- install -f --install-hooks
+
+.PHONY: push-swagger-spec-to-registry
+push-swagger-spec-to-registry:
+	swagger post schematizer api_docs/swagger.json

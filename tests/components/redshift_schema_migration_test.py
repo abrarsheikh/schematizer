@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import pytest
 
+from schematizer.components.converters import AvroToRedshiftConverter
 from schematizer.components.redshift_schema_migration \
     import RedshiftSchemaMigration
 from schematizer.models import redshift_data_types as data_types
@@ -15,6 +30,10 @@ from schematizer.models.sql_entities import SQLTable
 
 
 class TestRedshiftSchemaMigration(object):
+
+    @pytest.fixture
+    def converter(self):
+        return AvroToRedshiftConverter()
 
     @pytest.fixture
     def migration(self):
@@ -362,3 +381,96 @@ class TestRedshiftSchemaMigration(object):
             )
         )
         assert expected == actual
+
+    def test_all_redshift_data_types(self, converter, migration):
+        all_types_record_schema = {
+            'type': 'record',
+            'name': 'all_types',
+            'namespace': None,
+            'fields': [
+                # NUMERIC TYPES
+
+                # Unsupported:
+                # smallint - TODO(DATAPIPE-1520)
+
+                # Supported:
+                {'name': 'integer_col', 'type': 'int'},
+                {'name': 'integer_col_default', 'type': ['null', 'int'],
+                    'default': 10},
+                {'name': 'integer_col_nullable', 'type': ['null', 'int'],
+                    'default': None},
+                {'name': 'bigint_col', 'type': ['null', 'long'],
+                    'default': None},
+                {'name': 'decimal_col', 'type': ['null', {
+                    'logicalType': 'decimal',
+                    'precision': 4, 'scale': 2, 'type': 'bytes'}],
+                    'default': None},
+                {'name': 'real_col', 'type': ['null', 'float'],
+                    'default': None},
+                {'name': 'double_precision_col', 'type': ['null', 'double'],
+                    'default': None},
+
+
+                # CHARACTER TYPES
+
+                # Unsupported:
+                # char - deliberate since it does not support multibyte chars
+                # bpchar - equivalent to CHAR(256), which is unsupported
+                # text - equivalent to VARCHAR(256)
+
+                # Supported:
+                {'name': 'varchar_col_fixlen', 'type': ['null', 'string'],
+                    'fixlen': 256},
+                {'name': 'varchar_col_maxlen', 'type': ['null', 'string'],
+                    'maxlen': 256},
+                {'name': 'varchar_col_maxsize', 'type': ['null', 'string'],
+                    'maxlen': 99999},
+                {'name': 'varchar_col_enum', 'type': {
+                    'type': 'enum', 'name': 'varchar_col_enum',
+                    'symbols': ['a', 'abc', 'ab']}
+                 },
+
+
+                # DATETYPE TYPES
+
+                # Supported:
+                {'name': 'date_col', 'type': ['null', {
+                    'logicalType': 'date', 'type': 'int'}]
+                 },
+                {'name': 'timestamp_col', 'type': ['null', 'long'],
+                    'timestamp': True},
+                {'name': 'timestamptz_col', 'type': ['null', {
+                    'logicalType': 'timestamp-millis', 'type': 'long'}]
+                 },
+
+
+                # BOOLEAN TYPES
+
+                # Supported
+                {'name': 'boolean_col', 'type': ['null', 'boolean']},
+
+
+            ]
+        }
+        create_table_stmt = migration.create_table_sql(
+            converter.convert(all_types_record_schema)
+        )
+        assert create_table_stmt == (
+            'CREATE TABLE all_types ('
+            'integer_col integer not null,'
+            'integer_col_default integer default 10,'
+            'integer_col_nullable integer,'
+            'bigint_col bigint,'
+            'decimal_col decimal(4,2),'
+            'real_col real,'
+            'double_precision_col double precision,'
+            'varchar_col_fixlen varchar(256),'
+            'varchar_col_maxlen varchar(512),'
+            'varchar_col_maxsize varchar(65535),'
+            'varchar_col_enum varchar(3) not null,'
+            'date_col date,'
+            'timestamp_col timestamp,'
+            'timestamptz_col timestamptz,'
+            'boolean_col boolean'
+            ');'
+        )

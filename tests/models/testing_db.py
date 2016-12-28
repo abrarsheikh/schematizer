@@ -1,44 +1,73 @@
 # -*- coding: utf-8 -*-
-# This is shamelessly copied from
-# checkout_fulfillment servicve with some minor changes.
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import atexit
-import contextlib
+from contextlib import contextmanager
 from glob import glob
 
 import pytest
-import staticconf.testing
-import yelp_conn
+import staticconf
+import testing.mysqld
+from cached_property import cached_property
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker as sessionmaker_sa
-from yelp_conn.testing import sandbox
-from yelp_lib.classutil import cached_property
 
 from schematizer.models import database
 
 
-DB_NAME = 'schematizer'
-
-
 class PerProcessMySQLDaemon(object):
 
-    _db_name = DB_NAME
+    _db_name = 'schematizer'
+
+    # Generate Mysqld class which shares the generated database
+    Mysqld = testing.mysqld.MysqldFactory(cache_initialized_db=True)
 
     def __init__(self):
-        self._mysql_sandbox_context = sandbox.start()
+        self._mysql_daemon = self.Mysqld()
         self._create_database()
         self._create_tables()
 
         atexit.register(self.clean_up)
 
+    def _create_database(self):
+        with self._engine_without_db.connect() as conn:
+            conn.execute('create database ' + self._db_name)
+
+    @property
+    def _engine_without_db(self):
+        url_without_db = self._mysql_daemon.url()
+        return create_engine(url_without_db)
+
+    @cached_property
+    def engine(self):
+        url = self._mysql_daemon.url(db=self._db_name)
+        return create_engine(url)
+
     def _create_tables(self):
-        sandbox.load_fixtures(
-            self._mysql_daemon.get_conn(),
-            self._db_name,
-            glob('schema/tables/*.sql')
-        )
+        fixtures = glob('schema/tables/*.sql')
+        with self.engine.connect() as conn:
+            conn.execute('use {0}'.format(self._db_name))
+            for fixture in fixtures:
+                with open(fixture, 'r') as fh:
+                    conn.execute(fh.read())
+
+    def clean_up(self):
+        self._mysql_daemon.stop()
 
     def truncate_all_tables(self):
         self._session.execute('begin')
@@ -50,47 +79,14 @@ class PerProcessMySQLDaemon(object):
                 self._session.execute('truncate table `%s`' % table)
         self._session.execute('commit')
 
-    def clean_up(self):
-        self._mysql_sandbox_context.__exit__(None, None, None)
-
-    @cached_property
-    def engine(self):
-        return create_engine(self._url)
-
     @cached_property
     def _make_session(self):
         # regular sqlalchemy session maker
         return sessionmaker_sa(bind=self.engine)
 
-    def _create_database(self):
-        conn = self._engine_without_db.connect()
-        conn.execute('create database ' + self._db_name)
-        conn.close()
-
     @cached_property
     def _session(self):
         return self._make_session()
-
-    @property
-    def _url(self):
-        return 'mysql://localhost/%s?unix_socket=%s' % (
-            self._db_name,
-            self._mysql_daemon.socket
-        )
-
-    @property
-    def _engine_without_db(self):
-        return create_engine(self._url_without_db)
-
-    @property
-    def _url_without_db(self):
-        return 'mysql://localhost/?unix_socket=%s' % (
-               self._mysql_daemon.socket
-        )
-
-    @cached_property
-    def _mysql_daemon(self):
-        return self._mysql_sandbox_context.__enter__()
 
     @property
     def _all_tables(self):
@@ -107,13 +103,14 @@ class DBTestCase(object):
 
     @pytest.yield_fixture(autouse=True)
     def sandboxed_session(self):
-        self._session_prev_engine = database.session.bind
+        session_prev_engine = database.session.bind
 
-        with setup_yelp_conn_topology(self.engine):
+        with self.setup_topology(self.engine):
             database.session.bind = self.engine
             database.session.enforce_read_only = False
             yield database.session
-        database.session.bind = self._session_prev_engine
+
+        database.session.bind = session_prev_engine
 
     @pytest.yield_fixture(autouse=True)
     def rollback_session_after_test(self, sandboxed_session):
@@ -130,63 +127,47 @@ class DBTestCase(object):
         finally:
             self._per_process_mysql_daemon.truncate_all_tables()
 
+    @contextmanager
+    def setup_topology(self, engine):
+        # If yelp_conn is not available, it falls back to sqlalchemy session.
+        try:
+            with _setup_yelp_conn_topology(engine):
+                yield
+        except ImportError:
+            yield
 
-@contextlib.contextmanager
-def setup_yelp_conn_topology(engine):
-    """Point yelp_conn topology configs to a mysql test db engine"""
+
+@contextmanager
+def _setup_yelp_conn_topology(engine):
+    # yelp_conn is imported here instead of on top of the module because it
+    # may not be available for external users.
+    import yelp_conn
+
     yelp_conn.reset_module()
     mysql_url = engine.url
-
-    topology = TopologyFactory.make(
+    topology = _create_yelp_conn_topology(
         cluster='schematizer',
         db=mysql_url.database,
         user=(mysql_url.username or ''),
         passwd=(mysql_url.password or ''),
-        unix_socket=mysql_url.query['unix_socket']
+        unix_socket=mysql_url.query.get('unix_socket')
     )
     topology_file = yelp_conn.parse_topology(topology)
-
-    # Initialize yelp_conn if we haven't already, then replace the
-    # connection sets to dev db with connection set to test db
     mock_conf = {
         'topology': topology_file,
         'connection_set_file': './connection_sets.yaml'
     }
     with staticconf.testing.MockConfiguration(
-            mock_conf,
-            namespace=yelp_conn.config.namespace
+        mock_conf,
+        namespace=yelp_conn.config.namespace
     ):
         yelp_conn.initialize()
         yield
 
 
-class TopologyFactory(object):
-    """Create a yelp_conn topology that can be used with
-    yelp_conn.parse_topology() and yelp_conn.load_topology()
-
-    Use this to create a yelp_conn topology config that points to your
-    mysql test database.
-    """
-
-    @classmethod
-    def make(cls, cluster, db, unix_socket, user='', passwd=''):
-        common_settings = {
-            'cluster': cluster,
-            'db': db,
-            'user': user,
-            'passwd': passwd,
-            'unix_socket': unix_socket
-        }
-        entries = [
-            cls._entry(**dict(common_settings, replica='master')),
-            cls._entry(**dict(common_settings, replica='slave')),
-            cls._entry(**dict(common_settings, replica='reporting')),
-        ]
-        return {'topology': entries}
-
-    @staticmethod
-    def _entry(cluster, replica, db, user, passwd, unix_socket):
-        return {
+def _create_yelp_conn_topology(cluster, db, unix_socket, user='', passwd=''):
+    entries = [
+        {
             'cluster': cluster,
             'replica': replica,
             'entries': [{
@@ -196,3 +177,6 @@ class TopologyFactory(object):
                 'db': db
             }]
         }
+        for replica in ('master', 'slave', 'reporting')
+    ]
+    return {'topology': entries}

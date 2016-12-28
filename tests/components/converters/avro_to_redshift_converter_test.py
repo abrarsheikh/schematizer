@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import pytest
-from yelp_avro.data_pipeline.avro_meta_data import AvroMetaDataKeys
+from data_pipeline_avro_util.data_pipeline.avro_meta_data \
+    import AvroMetaDataKeys
 
 from schematizer.components.converters import AvroToRedshiftConverter
 from schematizer.components.converters.converter_base \
@@ -117,6 +132,39 @@ class TestAvroToRedshiftConverter(object):
             SQLColumn(self.col_name, redshift_types.RedshiftDecimal(8, 0))
         )
 
+    def test_convert_with_field_decimal(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null',
+                      {'logicalType': 'decimal',
+                       AvroMetaDataKeys.PRECISION: 10,
+                       AvroMetaDataKeys.SCALE: 2,
+                       'type': 'bytes'}
+                      ]},
+            SQLColumn(self.col_name, redshift_types.RedshiftDecimal(10, 2))
+        )
+
+    def test_convert_with_field_date(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null',
+                      {'logicalType': 'date', 'type': 'int'}
+                      ]},
+            SQLColumn(self.col_name, redshift_types.RedshiftDate())
+        )
+
+    def test_convert_with_field_timestamp_millis(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null',
+                      {'logicalType': 'timestamp-millis', 'type': 'long'}
+                      ]},
+            SQLColumn(self.col_name, redshift_types.RedshiftTimestampTz())
+        )
+
     def test_convert_with_field_float(self, converter):
         self._convert_and_assert_with_one_column(
             converter,
@@ -204,6 +252,22 @@ class TestAvroToRedshiftConverter(object):
              'type': ['null', 'boolean'],
              'default': None},
             SQLColumn(self.col_name, redshift_types.RedshiftBoolean()),
+        )
+
+    def test_convert_with_field_nullable_enum(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null', {
+                 'type': 'enum',
+                 'name': self.col_name,
+                 'symbols': ['1', '123', '12']}
+             ]},
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(3),
+                is_nullable=True
+            ),
         )
 
     def test_convert_with_field_enum(self, converter):

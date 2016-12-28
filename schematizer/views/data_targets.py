@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -36,6 +50,7 @@ def create_data_target(request):
     try:
         req = requests_v1.CreateDataTargetRequest(**request.json_body)
         data_target = reg_repo.create_data_target(
+            req.name,
             req.target_type,
             req.destination
         )
@@ -54,6 +69,21 @@ def get_data_target_by_id(request):
     data_target_id = int(request.matchdict.get('data_target_id'))
     try:
         data_target = models.DataTarget.get_by_id(data_target_id)
+        return resp_v1.get_data_target_response_from_data_target(data_target)
+    except sch_exc.EntityNotFoundError as e:
+        raise exc_v1.entity_not_found_exception(e.message)
+
+
+@view_config(
+    route_name='api.v1.get_data_target_by_name',
+    request_method='GET',
+    renderer='json'
+)
+@transform_api_response()
+def get_data_target_by_name(request):
+    data_target_name = request.matchdict.get('data_target_name')
+    try:
+        data_target = models.DataTarget.get_by_name(data_target_name)
         return resp_v1.get_data_target_response_from_data_target(data_target)
     except sch_exc.EntityNotFoundError as e:
         raise exc_v1.entity_not_found_exception(e.message)
@@ -102,11 +132,14 @@ def create_consumer_group(request):
 @transform_api_response()
 def get_topics_by_data_target_id(request):
     data_target_id = int(request.matchdict.get('data_target_id'))
-    req = requests_v1.GetTopicsByDataTargetIdRequest(request.params)
+    created_after_param = request.params.get('created_after')
+    created_after = (
+        int(created_after_param) if created_after_param is not None else None
+    )
     try:
         topics = reg_repo.get_topics_by_data_target_id(
             data_target_id,
-            created_after=req.created_after_datetime
+            created_after=created_after
         )
         return [resp_v1.get_topic_response_from_topic(t) for t in topics]
     except sch_exc.EntityNotFoundError as e:

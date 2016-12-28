@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -30,6 +44,7 @@ def get_schema_by_id(request):
     avro_schema = schema_repository.get_schema_by_id(int(schema_id))
     if avro_schema is None:
         raise exceptions_v1.schema_not_found_exception()
+    request.response.cache_control = 'max-age=86400'
     return responses_v1.get_schema_response_from_avro_schema(avro_schema)
 
 
@@ -40,11 +55,16 @@ def get_schema_by_id(request):
 )
 @transform_api_response()
 def get_schemas_created_after(request):
-    req = requests_v1.GetSchemasRequest(request.params)
-    schemas = schema_repository.get_schemas_created_after(
-        created_after=req.created_after_datetime,
-        page_info=req.page_info,
-        include_disabled=req.include_disabled
+    created_after_param = request.params.get('created_after')
+    created_after_timestamp = (
+        int(created_after_param) if created_after_param is not None else None
+    )
+    page_info = requests_v1.get_pagination_info(request.params)
+    include_disabled = request.params.get('include_disabled', False)
+    schemas = schema_repository.get_schemas_by_criteria(
+        created_after=created_after_timestamp,
+        page_info=page_info,
+        include_disabled=include_disabled
     )
     return [responses_v1.get_schema_response_from_avro_schema(avro_schema)
             for avro_schema in schemas]
@@ -69,8 +89,9 @@ def register_schema(request):
             schema_json=req.schema_json,
             namespace=req.namespace,
             source=req.source,
-            source_email_owner=req.source_owner_email,
+            source_owner_email=req.source_owner_email,
             contains_pii=req.contains_pii,
+            cluster_type=req.cluster_type,
             base_schema_id=req.base_schema_id,
             docs_required=docs_required
         )
@@ -104,8 +125,9 @@ def register_schema_from_mysql_stmts(request):
         schema_json=avro_schema_json,
         namespace=req.namespace,
         source=req.source,
-        source_email_owner=req.source_owner_email,
+        source_owner_email=req.source_owner_email,
         contains_pii=req.contains_pii,
+        cluster_type=req.cluster_type,
         docs_required=False
     )
 
@@ -114,8 +136,9 @@ def _register_avro_schema(
     schema_json,
     namespace,
     source,
-    source_email_owner,
+    source_owner_email,
     contains_pii,
+    cluster_type,
     base_schema_id=None,
     docs_required=True
 ):
@@ -125,8 +148,9 @@ def _register_avro_schema(
             avro_schema_json=schema_json,
             namespace_name=namespace,
             source_name=source,
-            source_email_owner=source_email_owner,
+            source_owner_email=source_owner_email,
             contains_pii=contains_pii,
+            cluster_type=cluster_type,
             base_schema_id=base_schema_id,
             docs_required=docs_required
         )
@@ -152,6 +176,20 @@ def get_schema_elements_by_schema_id(request):
     elements = schema_repository.get_schema_elements_by_schema_id(schema_id)
     return [responses_v1.get_element_response_from_element(element)
             for element in elements]
+
+
+@view_config(
+    route_name='api.v1.get_meta_attributes_by_schema_id',
+    request_method='GET',
+    renderer='json'
+)
+@transform_api_response()
+def get_meta_attributes_by_schema_id(request):
+    try:
+        schema_id = int(request.matchdict.get('schema_id'))
+        return schema_repository.get_meta_attributes_by_schema_id(schema_id)
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
 
 
 @view_config(

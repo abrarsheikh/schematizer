@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -6,10 +20,11 @@ import pytest
 
 from schematizer import models
 from schematizer.api.exceptions import exceptions_v1
+from schematizer.helpers.formatting import _format_datetime
 from schematizer.models.note import ReferenceTypeEnum
 from schematizer.views import notes as note_views
-from testing import factories
-from testing import utils
+from schematizer_testing import factories
+from schematizer_testing import utils
 from tests.views.api_test_base import ApiTestBase
 
 
@@ -34,8 +49,8 @@ class NotesViewTestBase(ApiTestBase):
             'reference_type': ref_type,
             'note': note_text,
             'last_updated_by': updated_by,
-            'created_at': note.created_at.isoformat(),
-            'updated_at': note.updated_at.isoformat()
+            'created_at': _format_datetime(note.created_at),
+            'updated_at': _format_datetime(note.updated_at)
         }
 
 

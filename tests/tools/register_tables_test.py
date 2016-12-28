@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -28,25 +42,27 @@ class TestRegisterTables(DBTestCase):
               replica: 'slave'
               entries:
                 - charset: utf8
+                  host: '{host}'
                   db: '{db}'
                   user: '{user}'
                   passwd: '{passwd}'
-                  port: 3306
+                  port: {port}
                   use_unicode: true
-                  unix_socket: {unix_socket}
         '''.format(
             cluster=self.schematizer_cluster,
+            host=mysql_url.host or 'localhost',
             db=mysql_url.database,
             user=mysql_url.username or '',
-            passwd=mysql_url.password or '',
-            unix_socket=mysql_url.query['unix_socket']
+            port=int(mysql_url.port or 3306),
+            passwd=mysql_url.password or ''
         ))
         return local.strpath
 
     def test_register_all_schematizer_tables(self, simple_topology_file):
         parsed_args = Namespace(
             cluster_name=self.schematizer_cluster,
-            config_file=simple_topology_file
+            config_file=simple_topology_file,
+            docker_file='docker-compose-opensource.yml'
         )
         with mock.patch(
             'schematizer.tools.register_tables.print'

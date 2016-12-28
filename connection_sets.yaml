@@ -6,3 +6,7 @@ connection_sets:
         connection_configuration:
             read_only: true
         schematizer: slave
+    primary_reporting:
+        connection_configuration:
+            read_only: true
+        schematizer: reporting

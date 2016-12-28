@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -8,8 +22,8 @@ from schematizer import models
 from schematizer.models import exceptions as sch_exc
 from schematizer.models.database import session
 from schematizer.models.page_info import PageInfo
-from testing import asserts
-from testing import factories
+from schematizer_testing import asserts
+from schematizer_testing import factories
 from tests.models.testing_db import DBTestCase
 
 
@@ -84,8 +98,9 @@ class TestGetModelById(DBTestCase):
     @pytest.fixture
     def dw_data_target(self):
         return factories.create_data_target(
+            name='yelp_redshift',
             target_type='redshift',
-            destination='dwv1.redshift.yelpcorp.com'
+            destination='example.org'
         )
 
     @pytest.fixture
@@ -132,16 +147,11 @@ class TestGetModelById(DBTestCase):
         actual = models.AvroSchema.get_by_id(biz_schema.id)
         asserts.assert_equal_avro_schema(actual, biz_schema)
 
-    def test_get_refresh_by_id(self, biz_src_refresh):
-        actual = models.Refresh.get_by_id(biz_src_refresh.id)
-        asserts.assert_equal_refresh(actual, biz_src_refresh)
-
     @pytest.mark.parametrize('model_cls', [
         models.Source,
         models.Topic,
         models.AvroSchema,
         models.AvroSchemaElement,
-        models.Refresh,
         models.Note,
         models.SourceCategory,
         models.DataTarget,
@@ -158,6 +168,7 @@ class TestCreateModel(DBTestCase):
     def test_create_data_target(self):
         actual = models.DataTarget.create(
             session,
+            name='yelp_redshift',
             target_type='foo',
             destination='bar'
         )

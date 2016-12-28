@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -6,7 +20,7 @@ import pytest
 import staticconf.testing
 
 from schematizer import models
-from testing import factories
+from schematizer_testing import factories
 
 
 @pytest.fixture
@@ -189,7 +203,7 @@ def biz_src_refresh(biz_source):
         source_id=biz_source.id,
         offset=0,
         batch_size=500,
-        priority=models.Priority.MEDIUM.name,
+        priority=models.Priority.MEDIUM.value,
         filter_condition=None,
         avg_rows_per_second_cap=1000
     )
@@ -198,8 +212,9 @@ def biz_src_refresh(biz_source):
 @pytest.fixture
 def dw_data_target():
     return factories.create_data_target(
+        name='yelp_redshift',
         target_type='dw_redshift',
-        destination='dwv1.redshift.yelpcorp.com'
+        destination='example.org'
     )
 
 
@@ -236,3 +251,70 @@ def mock_namespace_whitelist():
         }
     ):
         yield
+
+
+@pytest.fixture
+def meta_attr_namespace():
+    return factories.create_namespace('yelp_meta')
+
+
+@pytest.fixture
+def meta_attr_source(meta_attr_namespace):
+    return factories.create_source(
+        namespace_name=meta_attr_namespace.name,
+        source_name='dummy_meta_attr',
+        owner_email='test-meta-src@yelp.com'
+    )
+
+
+@pytest.fixture
+def meta_attr_topic(meta_attr_source):
+    return factories.create_topic(
+        topic_name='yelp_meta.dummy_meta_attr.1',
+        namespace_name=meta_attr_source.namespace.name,
+        source_name=meta_attr_source.name
+    )
+
+
+@pytest.fixture
+def meta_attr_schema_json():
+    return {
+        "name": "dummy_meta_attr",
+        "type": "record",
+        "fields": [
+            {"name": "id", "type": "int", "doc": "id", "default": 0},
+            {"name": "info", "type": "string", "doc": "dummy meta_attr info"}
+        ],
+        "doc": "Dummy Meta Attribute"
+    }
+
+
+@pytest.fixture
+def meta_attr_schema_elements():
+    return [
+        models.AvroSchemaElement(
+            key='dummy_meta_attr',
+            element_type='record',
+            doc="Meta Attr table"
+        ),
+        models.AvroSchemaElement(
+            key='dummy_meta_attr|id',
+            element_type='field',
+            doc="id"
+        )
+    ]
+
+
+@pytest.fixture
+def meta_attr_schema(
+    meta_attr_topic,
+    meta_attr_schema_json,
+    meta_attr_schema_elements
+):
+    return factories.create_avro_schema(
+        meta_attr_schema_json,
+        meta_attr_schema_elements,
+        topic_name=meta_attr_topic.name,
+        namespace=meta_attr_topic.source.namespace.name,
+        source=meta_attr_topic.source.name
+    )

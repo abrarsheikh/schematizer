@@ -6,6 +6,7 @@ schematizerconfigs:
 
 schematizerservice:
     build: .
+    dockerfile: Dockerfile
     links:
         - schematizerdatabase
     volumes_from:

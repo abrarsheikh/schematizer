@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -14,6 +28,7 @@ class TestListSourcesByNamespace(ApiTestBase):
         expected_exception = self.get_http_exception(404)
         with pytest.raises(expected_exception) as e:
             mock_request.matchdict = {'namespace': 'foo'}
+            mock_request.params = {}
             namespace_views.list_sources_by_namespace(mock_request)
 
         assert e.value.code == expected_exception.code
@@ -21,6 +36,26 @@ class TestListSourcesByNamespace(ApiTestBase):
 
     def test_happy_case(self, mock_request, yelp_namespace, biz_source):
         mock_request.matchdict = {'namespace': yelp_namespace.name}
+        mock_request.params = {}
+        actual = namespace_views.list_sources_by_namespace(mock_request)
+        expected = [self.get_expected_src_resp(biz_source.id)]
+        assert actual == expected
+
+    def test_with_min_id(self, mock_request, yelp_namespace, biz_source):
+        mock_request.matchdict = {'namespace': yelp_namespace.name}
+        mock_request.params = {'min_id': biz_source.id + 1}
+        actual = namespace_views.list_sources_by_namespace(mock_request)
+        assert actual == []
+
+    def test_with_count(
+            self,
+            mock_request,
+            yelp_namespace,
+            biz_source,
+            another_biz_source
+    ):
+        mock_request.matchdict = {'namespace': yelp_namespace.name}
+        mock_request.params = {'count': 1}
         actual = namespace_views.list_sources_by_namespace(mock_request)
         expected = [self.get_expected_src_resp(biz_source.id)]
         assert actual == expected

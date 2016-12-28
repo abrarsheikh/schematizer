@@ -1,9 +1,22 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from datetime import datetime
-from datetime import timedelta
+import time
 
 import mock
 import pytest
@@ -11,7 +24,9 @@ import simplejson
 
 from schematizer import models
 from schematizer.api.exceptions import exceptions_v1
+from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views
+from schematizer_testing import factories
 from tests.views.api_test_base import ApiTestBase
 
 
@@ -30,6 +45,7 @@ class TestGetSchemaByID(ApiTestBase):
         mock_request.matchdict = {'schema_id': str(biz_schema.id)}
         actual = schema_views.get_schema_by_id(mock_request)
         expected = self.get_expected_schema_resp(biz_schema.id)
+        assert mock_request.response.cache_control == 'max-age=86400'
         assert actual == expected
 
     def test_get_schema_with_base_schema(self, mock_request, biz_schema):
@@ -50,78 +66,68 @@ class TestGetSchemaByID(ApiTestBase):
         assert actual == expected
 
 
-class TestGetSchemaAfterDate(ApiTestBase):
+class TestGetSchemasByCriteria(ApiTestBase):
 
-    def test_get_schemas_filter_by_created_timestamp(
-        self,
-        mock_request,
-        biz_schema
+    # TODO [clin|DATAPIPE-2024] add more tests
+    @pytest.fixture
+    def created_timestamp(self):
+        return int(time.time())
+
+    @pytest.fixture
+    def disabled_schema_0(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp,
+            status=models.AvroSchemaStatus.DISABLED
+        )
+
+    @pytest.fixture
+    def ro_schema_1(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp + 1
+        )
+
+    @pytest.fixture
+    def rw_schema_2(self, created_timestamp):
+        return factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"},
+            created_at=created_timestamp + 2
+        )
+
+    def test_get_schemas_created_after_given_timestamp(
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that filtering with a later date returns less schemas than
-        filtering with an earlier date.
-        """
-        biz_created_at = biz_schema.created_at - timedelta(100, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {'created_after': creation_timestamp}
-        schemas_early = schema_views.get_schemas_created_after(mock_request)
+        mock_request.params = {
+            'created_after': disabled_schema_0.created_at
+        }
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [
+            self.get_expected_schema_resp(schema.id) for schema in
+            [ro_schema_1, rw_schema_2]
+        ]
+        assert actual == expected
 
-        biz_created_at = biz_schema.created_at + timedelta(1, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {'created_after': creation_timestamp}
-        schemas_later = schema_views.get_schemas_created_after(mock_request)
-        assert len(schemas_early) > len(schemas_later)
+        mock_request.params = {'created_after': ro_schema_1.created_at + 1}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(rw_schema_2.id)]
+        assert actual == expected
 
     def test_limit_schemas_by_count(
-        self,
-        mock_request,
-        biz_schema,
-        biz_pkey_schema
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that schemas are filtered by count. """
-        biz_created_at = biz_schema.created_at - timedelta(10, 0)
-        creation_timestamp = (biz_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-        mock_request.params = {
-            'created_after': creation_timestamp,
-            'count': 1
-        }
-
-        # Without the count param, length would be 2
-        assert len(schema_views.get_schemas_created_after(mock_request)) == 1
+        mock_request.params = {'created_after': 0, 'count': 1}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(ro_schema_1.id)]
+        assert actual == expected
 
     def test_limit_schemas_by_min_id(
-        self,
-        mock_request,
-        biz_schema,
-        biz_pkey_schema
+        self, mock_request, disabled_schema_0, ro_schema_1, rw_schema_2
     ):
-        """ Tests that filtering by min_id returns all the schemas which have
-        id equal to or greater than min_id.
-        """
-        sorted_schemas = sorted(
-            [biz_schema, biz_pkey_schema],
-            key=lambda schema: schema.id
-        )
-        schema_created_at = sorted_schemas[0].created_at - timedelta(10, 0)
-        creation_timestamp = (schema_created_at -
-                              datetime.utcfromtimestamp(0)).total_seconds()
-
-        for delta in xrange(2):
-            min_id = sorted_schemas[0].id + delta
-            mock_request.params = {
-                'created_after': creation_timestamp,
-                'min_id': min_id
-            }
-            actual_schemas = schema_views.get_schemas_created_after(
-                mock_request
-            )
-            expected_schemas = [
-                self.get_expected_schema_resp(schema.id)
-                for schema in sorted_schemas if schema.id >= min_id
-            ]
-            assert actual_schemas == expected_schemas
+        mock_request.params = {'created_after': 0, 'min_id': rw_schema_2.id}
+        actual = schema_views.get_schemas_created_after(mock_request)
+        expected = [self.get_expected_schema_resp(rw_schema_2.id)]
+        assert actual == expected
 
 
 class RegisterSchemaTestBase(ApiTestBase):
@@ -333,6 +339,25 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         assert e.value.code == expected_exception.code
         assert str(e.value) == "Source owner email must be non-empty."
 
+    def test_register_schema_defaults_to_datapipe_cluster_type(
+        self,
+        mock_request,
+        request_json
+    ):
+        mock_request.json_body = request_json
+        actual = schema_views.register_schema(mock_request)
+        self._assert_equal_schema_response(actual, request_json)
+
+    def test_register_schema_with_cluster_type(
+        self,
+        mock_request,
+        request_json
+    ):
+        request_json['cluster_type'] = 'scribe'
+        mock_request.json_body = request_json
+        actual = schema_views.register_schema(mock_request)
+        self._assert_equal_schema_response(actual, request_json)
+
 
 class TestRegisterSchemaFromMySQL(RegisterSchemaTestBase):
 
@@ -354,8 +379,8 @@ class TestRegisterSchemaFromMySQL(RegisterSchemaTestBase):
             "new_create_table_stmt": self.new_create_table_stmt,
             "namespace": biz_source.namespace.name,
             "source": biz_source.name,
-            "source_owner_email": 'biz.test@yelp.com',
-            'contains_pii': False
+            "source_owner_email": "biz.test@yelp.com",
+            "contains_pii": False
         }
 
     def test_register_new_table(self, mock_request, request_json):
@@ -454,12 +479,78 @@ class TestGetSchemaElements(ApiTestBase):
                     'element_type': element.element_type,
                     'key': element.key,
                     'doc': element.doc,
-                    'created_at': element.created_at.isoformat(),
-                    'updated_at': element.updated_at.isoformat()
+                    'created_at': _format_timestamp(element.created_at),
+                    'updated_at': _format_timestamp(element.updated_at)
                 }
             )
 
         return response
+
+
+@pytest.mark.usefixtures('create_biz_src_meta_attr_mapping')
+class TestGetMetaAttrBySchemaId(ApiTestBase):
+
+    @pytest.fixture
+    def create_biz_src_meta_attr_mapping(self, meta_attr_schema, biz_source):
+        factories.create_meta_attribute_mapping(
+            meta_attr_schema.id,
+            models.Source.__name__,
+            biz_source.id
+        )
+
+    @pytest.fixture
+    def new_biz_schema_json(self):
+        return {
+            "name": "biz",
+            "type": "record",
+            "fields": [
+                {"name": "id", "type": "int", "doc": "id", "default": 0},
+                {"name": "name", "type": "string", "doc": "biz name"}
+            ],
+            "doc": "biz table"
+        }
+
+    @pytest.fixture
+    def request_json(self, new_biz_schema_json, biz_source):
+        return {
+            "schema": simplejson.dumps(new_biz_schema_json),
+            "namespace": biz_source.namespace.name,
+            "source": biz_source.name,
+            "source_owner_email": 'biz.user@yelp.com',
+            'contains_pii': False
+        }
+
+    @pytest.fixture
+    def new_biz_schema_id(self, mock_request, request_json):
+        mock_request.json_body = request_json
+        new_biz_schema = schema_views.register_schema(mock_request)
+        return new_biz_schema['schema_id']
+
+    def test_non_existing_schema(self, mock_request):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception) as e:
+            mock_request.matchdict = {'schema_id': '0'}
+            schema_views.get_meta_attributes_by_schema_id(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == 'AvroSchema id 0 not found.'
+
+    def test_get_meta_attr_by_new_schema_id(
+        self,
+        mock_request,
+        new_biz_schema_id,
+        meta_attr_schema
+    ):
+        mock_request.matchdict = {'schema_id': str(new_biz_schema_id)}
+        actual = schema_views.get_meta_attributes_by_schema_id(mock_request)
+        expected = [meta_attr_schema.id]
+        assert actual == expected
+
+    def test_get_meta_attr_by_old_schema_id(self, mock_request, biz_schema):
+        mock_request.matchdict = {'schema_id': str(biz_schema.id)}
+        actual = schema_views.get_meta_attributes_by_schema_id(mock_request)
+        expected = []
+        assert actual == expected
 
 
 class TestGetDataTaragetsBySchemaID(ApiTestBase):

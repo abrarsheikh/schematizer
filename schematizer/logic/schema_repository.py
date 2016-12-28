@@ -1,20 +1,45 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import re
 import uuid
 
 import simplejson
 from sqlalchemy import desc
 from sqlalchemy import exc
 from sqlalchemy.orm import exc as orm_exc
-from yelp_conn.mysqldb import IntegrityError
 
 from schematizer import models
 from schematizer.components.converters.converter_base import BaseConverter
+from schematizer.config import log
 from schematizer.logic import exceptions as sch_exc
+from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
 from schematizer.models.database import session
+from schematizer.models.schema_meta_attribute_mapping import (
+    SchemaMetaAttributeMapping
+)
+
+
+try:
+    from yelp_conn.mysqldb import IntegrityError
+except ImportError:
+    from sqlalchemy.exc import IntegrityError
 
 
 def is_backward_compatible(old_schema_json, new_schema_json):
@@ -71,56 +96,101 @@ def convert_schema(source_type, target_type, source_schema):
 
 
 def register_avro_schema_from_avro_json(
-        avro_schema_json,
-        namespace_name,
-        source_name,
-        source_email_owner,
-        contains_pii,
-        status=models.AvroSchemaStatus.READ_AND_WRITE,
-        base_schema_id=None,
-        docs_required=True,
-        alias=None
+    avro_schema_json,
+    namespace_name,
+    source_name,
+    source_owner_email,
+    contains_pii,
+    cluster_type,
+    status=models.AvroSchemaStatus.READ_AND_WRITE,
+    base_schema_id=None,
+    docs_required=True,
+    alias=None
 ):
     """Add an Avro schema of given schema json object into schema store.
     The steps from checking compatibility to create new topic should be atomic.
 
-    :param avro_schema_json: JSON representation of Avro schema
-    :param namespace: namespace string
-    :param source: source name string
-    :param source_owner_email: email of the schema owner
-    :param status: AvroStatusEnum: RW/R/Disabled
-    :param base_schema_id: Id of the Avro schema from which the new schema is
-    derived from
-    :param docs_required: whether to-be-registered schema must contain doc
-    strings
-    :param alias: label for the schema. (namespace, source, alias) combination
-    uniquely identifies a schema
-    :return: New created AvroSchema object.
-    """
+    Args:
+        avro_schema_json: JSON representation of Avro schema
+        namespace_name (str): namespace string
+        source_name (str): source name string
+        source_owner_email (str): email of the schema owner
+        cluster_type (str): Type of kafka cluster Ex: datapipe, scribe, etc.
+            See http://y/datapipe_cluster_types for more info on cluster_types.
+        status (AvroStatusEnum, optional): RW/R/Disabled
+        base_schema_id (int, optional): Id of the Avro schema from which the
+            new schema is derived from
+        docs_required (bool, optional): whether to-be-registered schema must
+            contain doc strings
+        alias (str, optional): abel for the schema. (namespace, source, alias) combination
+            uniquely identifies a schema
 
-    source_email_owner = _strip_if_not_none(source_email_owner)
+    Return:
+        New created AvroSchema object.
+    """
+    source_owner_email = _strip_if_not_none(source_owner_email)
     source_name = _strip_if_not_none(source_name)
 
-    _assert_non_empty_email(source_email_owner)
+    _assert_non_empty_email(source_owner_email)
     _assert_non_empty_src_name(source_name)
 
     is_valid, error = models.AvroSchema.verify_avro_schema(avro_schema_json)
     if not is_valid:
-        raise ValueError("Invalid Avro schema JSON. Value: {0}. Error: {1}"
+        raise ValueError("Invalid Avro schema JSON. Value: {}. Error: {}"
                          .format(avro_schema_json, error))
 
     if docs_required:
-        models.AvroSchema.verify_avro_schema_has_docs(
-            avro_schema_json
-        )
+        models.AvroSchema.verify_avro_schema_has_docs(avro_schema_json)
 
+    # This may have false negative, i.e. the schema may be created in the
+    # master db but not yet in the slave db. In such situation, the flow
+    # then performs the same checking in the master db. The expectation is
+    # checking schema in slave db should catch most of the cases when the
+    # schema already exists.
+    # The `_switch_to_read_only_connection` returns the read-only connection
+    # if it is supported, and `None` if not. If the read-only connection is
+    # available, the logic flow checks the slave db (read-only) first, and will
+    # check the existing schema again in the master db (read-write) for
+    # false-negative case. If the read-only db is not supported, the logic flow
+    # will check in the regular db directly.
+    # TODO [clin|DATAPIPE-2165] nice to have test to verify right db is used.
+    read_only_conn = _switch_to_read_only_connection()
+    if read_only_conn:
+        with read_only_conn:
+            source = get_source_by_fullname(namespace_name, source_name)
+            if source:
+                # source_id = source.id if source else None
+                if alias:
+                    avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
+                    if avro_schema:
+                        topic = models.Topic.get_by_id(avro_schema.topic_id)
+                        if (_is_same_schema(avro_schema, avro_schema_json, source.id)
+                                and topic.contains_pii == contains_pii):
+                            return avro_schema
+                        raise ValueError(
+                            "ALIAS `{}` has already been taken.".format(alias)
+                        )
+                topic_candidates = _get_topic_candidates(
+                    source.id,
+                    base_schema_id,
+                    contains_pii,
+                    cluster_type
+                )
+                the_schema = _get_schema_if_exists(
+                    avro_schema_json, topic_candidates, source.id, alias
+                )
+                if the_schema:
+                    return the_schema
+
+    # TODO [DATAPIPE-1852]: the table locking doesn't seem to work correctly.
+    # The race condition still occurs.
     namespace = _get_namespace_or_create(namespace_name)
     _lock_namespace(namespace)
 
     source = _get_source_or_create(
         namespace.id,
         source_name.strip(),
-        source_email_owner.strip()
+        source_owner_email.strip()
     )
     _lock_source(source)
 
@@ -128,36 +198,29 @@ def register_avro_schema_from_avro_json(
         avro_schema = _get_schema_by_source_id_and_alias(source.id, alias)
         if avro_schema:
             topic = models.Topic.get_by_id(avro_schema.topic_id)
-            if (_is_same_schema(avro_schema, avro_schema_json, base_schema_id)
+            if (_is_same_schema(avro_schema, avro_schema_json, source.id)
                     and topic.contains_pii == contains_pii):
                 return avro_schema
             raise ValueError(
                 "ALIAS `{}` has already been taken.".format(alias)
             )
 
+    # If the connection is switched to read-only one above, it still needs to
+    # checks again in the master db to catch false-negative cases.
     topic_candidates = _get_topic_candidates(
-        source_id=source.id,
-        base_schema_id=base_schema_id,
-        contains_pii=contains_pii,
-        limit=None if base_schema_id else 1
+        source.id,
+        base_schema_id,
+        contains_pii,
+        cluster_type
     )
-
-    for topic in topic_candidates:
-        _lock_topic_and_schemas(topic)
-        latest_schema = get_latest_schema_by_topic_id(topic.id)
-        if _is_same_schema(
-            schema=latest_schema,
-            avro_schema_json=avro_schema_json,
-            base_schema_id=base_schema_id
-        ):
-            if latest_schema.alias != alias:
-                raise ValueError(
-                    "Same schema with a different ALIAS already exists."
-                )
-            return latest_schema
+    the_schema = _get_schema_if_exists(
+        avro_schema_json, topic_candidates, source.id, alias, lock=True
+    )
+    if the_schema:
+        return the_schema
 
     most_recent_topic = topic_candidates[0] if topic_candidates else None
-    if not _is_topic_compatible(
+    if not _is_candidate_topic_compatible(
         topic=most_recent_topic,
         avro_schema_json=avro_schema_json,
         contains_pii=contains_pii
@@ -165,10 +228,12 @@ def register_avro_schema_from_avro_json(
         most_recent_topic = _create_topic_for_source(
             namespace_name=namespace_name,
             source=source,
-            contains_pii=contains_pii
+            contains_pii=contains_pii,
+            cluster_type=cluster_type
         )
     return _create_avro_schema(
         avro_schema_json=avro_schema_json,
+        source_id=source.id,
         topic_id=most_recent_topic.id,
         status=status,
         base_schema_id=base_schema_id,
@@ -193,34 +258,126 @@ def _strip_if_not_none(original_str):
     return original_str.strip()
 
 
-def _is_same_schema(schema, avro_schema_json, base_schema_id):
-    return (schema and
-            schema.avro_schema_json == avro_schema_json and
-            schema.base_schema_id == base_schema_id)
+def _switch_to_read_only_connection():
+    try:
+        return session.slave_connection_set
+    except AttributeError:
+        return None
 
 
-def _is_topic_compatible(topic, avro_schema_json, contains_pii):
+def _get_topic_candidates(
+    source_id,
+    base_schema_id,
+    contains_pii,
+    cluster_type
+):
+    # source = get_source_by_fullname(namespace_name, source_name)
+    # if not source_id:
+    #     return []
+    query = session.query(models.Topic).join(models.AvroSchema).filter(
+        models.Topic.source_id == source_id,
+        models.Topic.cluster_type == cluster_type,
+        models.Topic._contains_pii == int(contains_pii),
+        models.AvroSchema.base_schema_id == base_schema_id,
+        models.Topic.id == models.AvroSchema.topic_id,
+        models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
+    ).order_by(
+        models.Topic.id.desc()
+    )
+    if not base_schema_id:
+        query = query.limit(1)
+    return query.all()
+
+
+def _get_schema_if_exists(
+    new_schema_json, topic_candidates, source_id, alias, lock=False
+):
+    if not topic_candidates:
+        return None
+
+    # meta_attr_mappings = {
+    #     o for o in meta_attr_repo.get_meta_attributes_by_source(source_id)
+    # }
+
+    # TODO: change to check all the schemas of topic candidates instead of
+    # latest one.
+    for topic in topic_candidates:
+        if lock:
+            _lock_topic_and_schemas(topic.id)
+        latest_schema = get_latest_schema_by_topic_id(topic.id)
+        is_same_schema = _is_same_schema(
+            latest_schema, new_schema_json, source_id
+        )
+        log.info(
+            '[{}] Registering schema {} on source id {}. '
+            'Checking same schema with latest {} on topic {}: {}'.format(
+                "Master" if lock else "Slave",
+                new_schema_json,
+                source_id,
+                latest_schema.id if latest_schema else 'None',
+                topic.name,
+                is_same_schema
+            )
+        )
+        if is_same_schema:
+            if latest_schema.alias != alias:
+                raise ValueError(
+                    "Same schema with a different ALIAS already exists."
+                )
+            return latest_schema
+    return None
+
+
+def _is_same_schema(existing_schema, new_schema_json, source_id):
+    if not existing_schema:
+        return False
+    if existing_schema.avro_schema_json != new_schema_json:
+        return False
+
+    meta_attr_mappings = {
+        o for o in meta_attr_repo.get_meta_attributes_by_source(source_id)
+    }
+    schema_meta_attrs = session.query(
+        SchemaMetaAttributeMapping.meta_attr_schema_id
+    ).filter(
+        SchemaMetaAttributeMapping.schema_id == existing_schema.id
+    ).all()
+    return meta_attr_mappings == {o[0] for o in schema_meta_attrs}
+
+
+def _are_meta_attr_mappings_same(schema_id, source_id):
+    return (set(get_meta_attributes_by_schema_id(schema_id)) ==
+            set(meta_attr_repo.get_meta_attributes_by_source(source_id)))
+
+
+def _is_candidate_topic_compatible(topic, avro_schema_json, contains_pii):
     return (topic and
             topic.contains_pii == contains_pii and
-            is_schema_compatible_in_topic(avro_schema_json, topic.name) and
+            is_schema_compatible_in_topic(avro_schema_json, topic) and
             _is_pkey_identical(avro_schema_json, topic.name))
 
 
-def _create_topic_for_source(namespace_name, source, contains_pii):
+def _create_topic_for_source(
+    namespace_name,
+    source,
+    contains_pii,
+    cluster_type
+):
     # Note that creating duplicate topic names will throw a sqlalchemy
     # IntegrityError exception. When it occurs, it indicates the uuid
     # is generating the same value (rarely) and we'd like to know it.
     # Per SEC-5079, sqlalchemy IntegrityError now is replaced with yelp-conn
     # IntegrityError.
     topic_name = _construct_topic_name(namespace_name, source.name)
-    return _create_topic(topic_name, source.id, contains_pii)
+    return _create_topic(topic_name, source.id, contains_pii, cluster_type)
 
 
 def _construct_topic_name(namespace, source):
-    return '.'.join((namespace, source, uuid.uuid4().hex))
+    topic_name = '__'.join((namespace, source, uuid.uuid4().hex))
+    return re.sub('[^\w-]', '_', topic_name)
 
 
-def _create_topic(topic_name, source_id, contains_pii):
+def _create_topic(topic_name, source_id, contains_pii, cluster_type):
     """Create a topic named `topic_name` in the given source.
     It returns a newly created topic. If a topic with the same
     name already exists, an exception is thrown
@@ -228,7 +385,8 @@ def _create_topic(topic_name, source_id, contains_pii):
     topic = models.Topic(
         name=topic_name,
         source_id=source_id,
-        contains_pii=contains_pii
+        contains_pii=contains_pii,
+        cluster_type=cluster_type
     )
     session.add(topic)
     session.flush()
@@ -338,18 +496,18 @@ def _lock_source(source):
     ).with_for_update()
 
 
-def _lock_topic_and_schemas(topic):
-    if not topic:
+def _lock_topic_and_schemas(topic_id):
+    if not topic_id:
         return
     session.query(
         models.Topic
     ).filter(
-        models.Topic.id == topic.id
+        models.Topic.id == topic_id
     ).with_for_update()
     session.query(
         models.AvroSchema
     ).filter(
-        models.AvroSchema.topic_id == topic.id
+        models.AvroSchema.topic_id == topic_id
     ).with_for_update()
 
 
@@ -377,57 +535,19 @@ def get_latest_topic_of_namespace_source(namespace_name, source_name):
     ).first()
 
 
-def _get_topic_candidates(
-        source_id,
-        base_schema_id,
-        contains_pii,
-        limit=None,
-        enabled_schemas_only=True
-):
-    """ Get topic candidate(s) for the given args, in order of creation (newest
-    first).
-
-    :param int source_id: The source_id of the topic(s)
-    :param int|None base_schema_id: The base_schema_id of the schema(s) in the
-        topic(s). Note that this may be None, as is the case for any schemas
-        not derived from other schemas.
-    :param bool contains_pii: Limit to topics which either do or do not
-        contain PII. Defaults to None, which will not apply any filter.
-    :param int|None limit: Provide a limit to the number of topics returned.
-    :param bool enabled_schemas_only: Set to True to limit results to schemas
-        which have not been disabled
-    :rtype: [schematizer.models.Topic]
-    """
-    query = session.query(
-        models.Topic
-    ).join(
-        models.AvroSchema
-    ).filter(
-        models.Topic.source_id == source_id,
-        models.Topic._contains_pii == int(contains_pii),
-        models.AvroSchema.base_schema_id == base_schema_id
-    )
-    if enabled_schemas_only:
-        query = query.filter(
-            models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
-        )
-    query = query.order_by(
-        models.Topic.id.desc()
-    )
-    if limit:
-        query = query.limit(limit)
-    return query.all()
-
-
-def is_schema_compatible_in_topic(target_schema, topic_name):
+def is_schema_compatible_in_topic(target_schema, topic):
     """Check whether given schema is a valid Avro schema and compatible
     with existing schemas in the specified topic. Note that target_schema
     is the avro json object.
     """
-    enabled_schemas = get_schemas_by_topic_name(topic_name)
+    enabled_schemas = get_schemas_by_topic_name(topic.name)
     for enabled_schema in enabled_schemas:
         schema_json = simplejson.loads(enabled_schema.avro_schema)
-        if not is_full_compatible(schema_json, target_schema):
+        if (not is_full_compatible(schema_json, target_schema) or
+            not _are_meta_attr_mappings_same(
+                enabled_schema.id,
+                topic.source_id
+        )):
             return False
     return True
 
@@ -482,11 +602,12 @@ def get_source_by_fullname(namespace_name, source_name):
 
 
 def _create_avro_schema(
-        avro_schema_json,
-        topic_id,
-        status=models.AvroSchemaStatus.READ_AND_WRITE,
-        base_schema_id=None,
-        alias=None
+    avro_schema_json,
+    source_id,
+    topic_id,
+    status=models.AvroSchemaStatus.READ_AND_WRITE,
+    base_schema_id=None,
+    alias=None
 ):
     avro_schema_elements = models.AvroSchema.create_schema_elements_from_json(
         avro_schema_json
@@ -507,6 +628,7 @@ def _create_avro_schema(
         session.add(avro_schema_element)
 
     session.flush()
+    _add_meta_attribute_mappings(avro_schema.id, source_id)
     return avro_schema
 
 
@@ -518,50 +640,6 @@ def get_schema_by_id(schema_id):
     ).filter(
         models.AvroSchema.id == schema_id
     ).first()
-
-
-def get_schemas_created_after(
-    created_after,
-    page_info=None,
-    include_disabled=False
-):
-    # TODO [clin|DATAPIPE-1430] as part of the clean up, merge this function
-    # into `get_schemas_by_criteira`.
-    """ Get the Avro schemas (excluding disabled schemas) created after the
-    specified created_after timestamp and with id greater than or equal to
-    the min_id. Limits the returned schemas to count. Default it excludes
-    disabled schemas.
-
-    Args:
-        created_after(datetime): get schemas created after given utc
-            datetime (inclusive).
-        page_info(Optional[:class:schematizer.models.tuples.PageInfo]):
-            limits the schemas to count and those with an id greater than or
-            equal to min_id.
-        include_disabled(Optional[bool]): set it to True to include disabled
-            schemas. Default it excludes disabled ones.
-    Returns:
-        (list[:class:schematizer.models.AvroSchema]): List of avro
-            schemas created after (inclusive) the specified creation
-            date.
-    """
-    qry = session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.created_at >= created_after,
-    )
-    if not include_disabled:
-        qry = qry.filter(
-            models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
-        )
-    if page_info and page_info.min_id:
-        qry = qry.filter(
-            models.AvroSchema.id >= page_info.min_id
-        )
-    qry = qry.order_by(models.AvroSchema.id)
-    if page_info and page_info.count:
-        qry = qry.limit(page_info.count)
-    return qry.all()
 
 
 def get_latest_schema_by_topic_id(topic_id):
@@ -607,7 +685,7 @@ def is_schema_compatible(target_schema, namespace, source):
     topic = get_latest_topic_of_namespace_source(namespace, source)
     if not topic:
         return True
-    return is_schema_compatible_in_topic(target_schema, topic.name)
+    return is_schema_compatible_in_topic(target_schema, topic)
 
 
 def get_schemas_by_topic_name(topic_name, include_disabled=False):
@@ -714,12 +792,11 @@ def create_refresh(
         filter_condition,
         avg_rows_per_second_cap
 ):
-    priority_value = None if not priority else models.Priority[priority].value
     refresh = models.Refresh(
         source_id=source_id,
         offset=offset,
         batch_size=batch_size,
-        priority=priority_value,
+        priority=priority,
         filter_condition=filter_condition,
         avg_rows_per_second_cap=avg_rows_per_second_cap
     )
@@ -744,6 +821,34 @@ def get_schema_elements_by_schema_id(schema_id):
     ).order_by(
         models.AvroSchemaElement.id
     ).all()
+
+
+def get_meta_attributes_by_schema_id(schema_id):
+    """Logic Method to list the schema_ids of all meta attributes registered to
+    the specified schema id. Invalid schema id will raise an
+    EntityNotFoundError exception"""
+    models.AvroSchema.get_by_id(schema_id)
+    mappings = session.query(
+        SchemaMetaAttributeMapping
+    ).filter(
+        SchemaMetaAttributeMapping.schema_id == schema_id
+    ).all()
+    return [m.meta_attr_schema_id for m in mappings]
+
+
+def _add_meta_attribute_mappings(schema_id, source_id):
+    mappings = []
+    for meta_attr_schema_id in meta_attr_repo.get_meta_attributes_by_source(
+        source_id
+    ):
+        new_mapping = SchemaMetaAttributeMapping(
+            schema_id=schema_id,
+            meta_attr_schema_id=meta_attr_schema_id
+        )
+        session.add(new_mapping)
+        mappings.append(new_mapping)
+    session.flush()
+    return mappings
 
 
 def get_topics_by_criteria(
@@ -811,39 +916,24 @@ def get_schemas_by_criteria(
     Args:
         namespace(Optional[str]): get schemas of given namespace if specified
         source(Optional[str]): get schemas of given source name if specified
-        created_after(Optional[datetime]): get schemas created after given utc
-            datetime (inclusive) if specified
+        created_after(Optional[int]): get schemas created after given unix
+            timestamp (inclusive) if specified
         included_disabled(Optional[bool]): whether to include disabled schemas
         page_info(Optional[:class:schematizer.models.page_info.PageInfo]):
-            limits the topics to count and those with id greater than or
+            limits the schemas to count and those with id greater than or
             equal to min_id.
 
     Returns:
         (list[:class:schematizer.models.AvroSchema]): List of avro schemas
         sorted by their ids.
     """
-    qry = session.query(
-        models.AvroSchema
-    ).join(
-        models.Topic,
-        models.Source,
-        models.Namespace
-    ).filter(
-        models.AvroSchema.topic_id == models.Topic.id,
-        models.Topic.source_id == models.Source.id,
-        models.Source.namespace_id == models.Namespace.id,
-        models.Namespace.name == namespace_name
-    )
-    if source_name:
-        qry = qry.filter(models.Source.name == source_name)
+    qry = session.query(models.AvroSchema)
     if created_after is not None:
         qry = qry.filter(models.AvroSchema.created_at >= created_after)
-
     if not include_disabled:
         qry = qry.filter(
             models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
         )
-
     min_id = page_info.min_id if page_info else 0
     qry = qry.filter(models.AvroSchema.id >= min_id)
 
@@ -851,6 +941,21 @@ def get_schemas_by_criteria(
     if page_info and page_info.count:
         qry = qry.limit(page_info.count)
 
+    if namespace_name or source_name:
+        qry = qry.join(
+            models.Topic,
+            models.Source
+        ).filter(
+            models.AvroSchema.topic_id == models.Topic.id,
+            models.Topic.source_id == models.Source.id,
+        )
+    if namespace_name:
+        qry = qry.join(models.Namespace).filter(
+            models.Source.namespace_id == models.Namespace.id,
+            models.Namespace.name == namespace_name
+        )
+    if source_name:
+        qry = qry.filter(models.Source.name == source_name)
     return qry.all()
 
 
@@ -858,19 +963,19 @@ def get_refreshes_by_criteria(
     namespace=None,
     source_name=None,
     status=None,
-    created_after=None
+    created_after=None,
+    updated_after=None
 ):
     """Get all the refreshes that match the given filter criteria.
 
     Args:
-        namespace(Optional[str]): get refreshes of given namespace
-            if specified.
-        source_name(Optional[str]): get refreshes of given source
-            if specified.
-        status(Optional[int]): get refreshes of given status
-            if specified.
-        created_after(Optional[datetime]): get refreshes created
-            after given utc datetime (inclusive) if specified.
+        namespace(str, optional): get refreshes of given namespace if specified
+        source_name(str, optional): get refreshes of given source if specified
+        status(str, optional): get refreshes of given status if specified
+        created_after(int, optional): get refreshes created after given unix
+            timestamp (inclusive) if specified.
+        updated_after(int, optional): get refreshes updated after given unix
+            timestamp (inclusive) if specified.
     """
     qry = session.query(models.Refresh)
     if namespace:
@@ -887,34 +992,13 @@ def get_refreshes_by_criteria(
             models.Source.name == source_name
         )
     if status:
-        status = models.RefreshStatus[status].value
         qry = qry.filter(models.Refresh.status == status)
-    if created_after:
+    if created_after is not None:
         qry = qry.filter(models.Refresh.created_at >= created_after)
+    if updated_after is not None:
+        qry = qry.filter(models.Refresh.updated_at >= updated_after)
     return qry.order_by(
         desc(models.Refresh.priority)
     ).order_by(
         models.Refresh.id
     ).all()
-
-
-def get_refresh_by_id(refresh_id):
-    return session.query(
-        models.Refresh
-    ).filter(
-        models.Refresh.id == refresh_id
-    ).first()
-
-
-def update_refresh(refresh_id, status, offset):
-    status_value = models.RefreshStatus[status].value
-    return session.query(
-        models.Refresh
-    ).filter(
-        models.Refresh.id == refresh_id
-    ).update(
-        {
-            models.Refresh.status: status_value,
-            models.Refresh.offset: offset
-        }
-    )

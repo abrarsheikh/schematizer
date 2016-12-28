@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -9,11 +23,19 @@ import pytest
 
 from schematizer import models
 from schematizer.logic import doc_tool
-from testing import factories
+from schematizer_testing import factories
 from tests.models.testing_db import DBTestCase
 
 
 class TestDocTool(DBTestCase):
+
+    @property
+    def namespace_foo(self):
+        return 'foo'
+
+    @property
+    def source_bar(self):
+        return 'bar'
 
     @property
     def note_text(self):
@@ -30,9 +52,9 @@ class TestDocTool(DBTestCase):
     @pytest.fixture
     def topic(self):
         return factories.create_topic(
-            factories.fake_topic_name,
-            factories.fake_namespace,
-            factories.fake_source,
+            'some_topic_name',
+            self.namespace_foo,
+            self.source_bar,
         )
 
     @property
@@ -88,8 +110,8 @@ class TestDocTool(DBTestCase):
     @pytest.fixture
     def source(self):
         return factories.create_source(
-            factories.fake_namespace,
-            factories.fake_source
+            self.namespace_foo,
+            self.source_bar
         )
 
     @pytest.yield_fixture
@@ -225,7 +247,7 @@ class TestDocTool(DBTestCase):
         source_category
     ):
         actual = doc_tool.get_source_categories_by_criteria(
-            namespace_name=factories.fake_namespace
+            namespace_name=self.namespace_foo
         )
         assert len(actual) == 1
         self.assert_equal_source_category(source_category, actual[0])
@@ -235,8 +257,8 @@ class TestDocTool(DBTestCase):
         source_category
     ):
         actual = doc_tool.get_source_categories_by_criteria(
-            namespace_name=factories.fake_namespace,
-            source_name=factories.fake_source
+            namespace_name=self.namespace_foo,
+            source_name=self.source_bar
         )
         assert len(actual) == 1
         self.assert_equal_source_category(source_category, actual[0])
@@ -246,7 +268,7 @@ class TestDocTool(DBTestCase):
         source_category
     ):
         actual = doc_tool.get_source_categories_by_criteria(
-            namespace_name=factories.fake_namespace,
+            namespace_name=self.namespace_foo,
             source_name="this_source_does_not_exist"
         )
         assert not actual

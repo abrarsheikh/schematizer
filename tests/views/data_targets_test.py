@@ -1,9 +1,22 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import copy
-from datetime import datetime
 
 import pytest
 
@@ -41,13 +54,32 @@ class TestGetDataTargetByID(ApiTestBase):
         assert str(e.value) == 'DataTarget id 0 not found.'
 
 
+class TestGetDataTargetByName(ApiTestBase):
+
+    def test_happy_case(self, mock_request, dw_data_target):
+        mock_request.matchdict = {'data_target_name': str(dw_data_target.name)}
+        actual = data_target_views.get_data_target_by_name(mock_request)
+        expected = self.get_expected_data_target_resp(dw_data_target.id)
+        assert actual == expected
+
+    def test_non_existing_data_target_name(self, mock_request):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception) as e:
+            mock_request.matchdict = {'data_target_name': 'foo'}
+            data_target_views.get_data_target_by_name(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == 'DataTarget name `foo` not found.'
+
+
 class TestCreateDataTarget(ApiTestBase):
 
     @pytest.fixture
     def request_json(self):
         return {
+            'name': 'yelp_redshift',
             'target_type': 'redshift',
-            'destination': 'prod.yelpcorp'
+            'destination': 'example.org'
         }
 
     def test_happy_case(self, mock_request, request_json):
@@ -221,17 +253,13 @@ class TestGetTopicsByDataTargetId(ApiTestBase):
         dw_data_target,
         dw_consumer_group_source_data_src
     ):
-        epoch_create_time = (biz_topic.created_at -
-                             datetime.utcfromtimestamp(0)).total_seconds()
         mock_request.matchdict = {'data_target_id': str(dw_data_target.id)}
-        mock_request.params = {
-            'created_after': epoch_create_time
-        }
+        mock_request.params = {'created_after': biz_topic.created_at}
         actual = data_target_views.get_topics_by_data_target_id(mock_request)
         expected = [self.get_expected_topic_resp(biz_topic.id)]
         assert actual == expected
 
-        five_sec_after_create_time = epoch_create_time + 5
+        five_sec_after_create_time = biz_topic.created_at + 5
         mock_request.params = {'created_after': five_sec_after_create_time}
         actual = data_target_views.get_topics_by_data_target_id(mock_request)
         assert actual == []

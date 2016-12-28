@@ -1,4 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -6,9 +20,11 @@ from pyramid.view import view_config
 
 from schematizer.api.decorators import transform_api_response
 from schematizer.api.exceptions import exceptions_v1
-from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
 from schematizer.logic import schema_repository
+from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer.models.refresh import Refresh
 
 
 @view_config(
@@ -18,10 +34,11 @@ from schematizer.logic import schema_repository
 )
 @transform_api_response()
 def get_refresh_by_id(request):
-    refresh_id = request.matchdict.get('refresh_id')
-    refresh = schema_repository.get_refresh_by_id(int(refresh_id))
-    if refresh is None:
-        raise exceptions_v1.refresh_not_found_exception()
+    refresh_id = int(request.matchdict.get('refresh_id'))
+    try:
+        refresh = Refresh.get_by_id(refresh_id)
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
     return responses_v1.get_refresh_response_from_refresh(refresh)
 
 
@@ -32,17 +49,15 @@ def get_refresh_by_id(request):
 )
 @transform_api_response()
 def update_refresh(request):
-    refresh_id_str = request.matchdict.get('refresh_id')
-    refresh_id = int(refresh_id_str)
-    req = requests_v1.UpdateRefreshStatusRequest(**request.json_body)
-    refresh = schema_repository.get_refresh_by_id(refresh_id)
-    if refresh is None:
-        raise exceptions_v1.refresh_not_found_exception()
-    schema_repository.update_refresh(
-        refresh_id=refresh_id,
-        status=req.status,
-        offset=req.offset
-    )
+    refresh_id = int(request.matchdict.get('refresh_id'))
+    try:
+        refresh = Refresh.get_by_id(refresh_id)
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
+
+    refresh.status = request.json_body['status']
+    refresh.offset = request.json_body['offset']
+    session.flush()
     return responses_v1.get_refresh_response_from_refresh(refresh)
 
 
@@ -53,12 +68,17 @@ def update_refresh(request):
 )
 @transform_api_response()
 def get_refreshes_by_criteria(request):
-    criteria = requests_v1.GetRefreshesRequest(request.params)
+    param = request.params.get('created_after')
+    created_after = int(param) if param is not None else None
+
+    param = request.params.get('updated_after')
+    updated_after = int(param) if param is not None else None
 
     refreshes = schema_repository.get_refreshes_by_criteria(
-        namespace=criteria.namespace,
-        status=criteria.status,
-        created_after=criteria.created_after_datetime
+        namespace=request.params.get('namespace'),
+        status=request.params.get('status'),
+        created_after=created_after,
+        updated_after=updated_after
     )
     return [responses_v1.get_refresh_response_from_refresh(refresh)
             for refresh in refreshes]
