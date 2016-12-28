@@ -18,7 +18,6 @@ from __future__ import unicode_literals
 
 import datetime
 
-import mock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
