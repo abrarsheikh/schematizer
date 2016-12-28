@@ -84,12 +84,12 @@ def assert_reference_exists(reference_type, reference_id):
 @log_api()
 def update_note(request):
     note_id = int(request.matchdict.get('note_id'))
-    note = doc_tool.get_note_by_id(note_id)
-    if note is None:
-        raise exceptions_v1.note_not_found_exception()
-    doc_tool.update_note(
-        id=note_id,
-        note_text=request.json_body['note'],
-        last_updated_by=request.json_body['last_updated_by']
-    )
+    try:
+        note = doc_tool.update_note(
+            note_id=note_id,
+            note_text=request.json_body['note'],
+            last_updated_by=request.json_body['last_updated_by']
+        )
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
     return responses_v1.get_note_response_from_note(note)
