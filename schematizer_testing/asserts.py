@@ -70,6 +70,12 @@ def assert_equal_data_target(actual, expected):
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
+def assert_equal_data_source_target_mapping(actual, expected):
+    attrs = ('id', 'data_source_id', 'data_source_type', 'data_target_id',
+             'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
 def assert_equal_consumer_group(actual, expected):
     attrs = ('id', 'group_name', 'created_at', 'updated_at')
     _assert_equal_multi_attrs(actual, expected, *attrs)
@@ -81,6 +87,23 @@ def assert_equal_consumer_group_data_source(actual, expected):
              'created_at', 'updated_at')
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_consumer_group(actual.consumer_group, expected.consumer_group)
+
+
+def assert_equal_source_category(actual, expected):
+    attrs = ('id', 'source_id', 'category', 'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
+def assert_equal_note(actual, expected):
+    attrs = ('id', 'reference_type', 'reference_id', 'note', 'last_updated_by',
+             'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
+def assert_equal_schema_meta_attr_mapping(actual, expected):
+    attrs = ('id', 'schema_id', 'meta_attr_schema_id',
+             'created_at', 'updated_at')
+    _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def assert_equal_entity_list(actual_list, expected_list, assert_func):

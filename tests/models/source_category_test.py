@@ -16,23 +16,27 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from schematizer.models.source import Source
+from schematizer.models.source_category import SourceCategory
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
 
 
-class TestGetSources(GetModelsBasicTests):
+class TestGetSourceCategories(GetModelsBasicTests):
 
-    def create_source(self):
-        return factories.create_source(
+    def create_source_category(self):
+        source_bar = factories.get_or_create_source(
             namespace_name='foo',
-            source_name=factories.generate_name('source'),
+            source_name=factories.generate_name("source_bar"),
             owner_email='test.dev@example.com'
         )
+        return factories.create_source_category(
+            source_id=source_bar.id,
+            category=factories.generate_name("some_category")
+        )
 
-    entity_cls = Source
-    create_entity_func = create_source
+    entity_cls = SourceCategory
+    create_entity_func = create_source_category
 
     def get_assert_func(self):
-        return asserts.assert_equal_source
+        return asserts.assert_equal_source_category

@@ -22,41 +22,24 @@ from schematizer.models.data_target import DataTarget
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer_testing import asserts
 from schematizer_testing import factories
-from tests.models.base_model_test import GetAllModelTestBase
+from tests.models.base_model_test import GetModelsBasicTests
 from tests.models.testing_db import DBTestCase
 
 
-class TestGetAllDataTargets(GetAllModelTestBase):
+class TestGetDataTargets(GetModelsBasicTests):
 
-    def create_data_target(self, data_target_no):
+    def create_data_target(self):
         return factories.create_data_target(
-            name='data_target_{}'.format(data_target_no),
+            name=factories.generate_name('data_target'),
             target_type='my_target_type',
-            destination='destination_{}'.format(data_target_no)
+            destination='some_destination'
         )
 
-    entity_model = DataTarget
+    entity_cls = DataTarget
     create_entity_func = create_data_target
-    assert_func_name = 'assert_equal_data_target'
 
-
-class TestGetDataTargetById(DBTestCase):
-
-    @pytest.fixture
-    def data_target_foo(self):
-        return factories.create_data_target(
-            name='foo',
-            target_type='redshift',
-            destination='some_cluster.example.com'
-        )
-
-    def test_happy_case(self, data_target_foo):
-        actual = DataTarget.get_by_id(data_target_foo.id)
-        asserts.assert_equal_data_target(actual, expected=data_target_foo)
-
-    def test_non_existed_data_target(self):
-        with pytest.raises(EntityNotFoundError):
-            DataTarget.get_by_id(obj_id=0)
+    def get_assert_func(self):
+        return asserts.assert_equal_data_target
 
 
 class TestGetDataTargetByName(DBTestCase):

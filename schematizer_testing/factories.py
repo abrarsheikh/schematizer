@@ -20,6 +20,9 @@ import uuid
 
 from schematizer import models
 from schematizer.models.avro_schema import AvroSchema
+from schematizer.models.data_source_target_mapping import (
+    DataSourceTargetMapping
+)
 from schematizer.models.data_target import DataTarget
 from schematizer.models.database import session
 from schematizer.models.meta_attribute_mapping_store import (
@@ -29,6 +32,9 @@ from schematizer.models.namespace import Namespace
 from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
 from schematizer.models.refresh import RefreshStatus
+from schematizer.models.schema_meta_attribute_mapping import (
+    SchemaMetaAttributeMapping
+)
 from schematizer.models.source import Source
 from schematizer.models.topic import Topic
 
@@ -165,6 +171,22 @@ def create_data_target(name, target_type, destination):
     )
 
 
+def get_or_create_data_target(name, target_type, destination):
+    entity = session.query(DataTarget).filter(DataTarget.name == name).first()
+    return entity or create_data_target(name, target_type, destination)
+
+
+def create_data_source_target_mapping(source_type, source_id, target_id):
+    return _create_entity(
+        session,
+        DataSourceTargetMapping(
+            data_source_type=source_type,
+            data_source_id=source_id,
+            data_target_id=target_id
+        )
+    )
+
+
 def create_consumer_group(group_name, data_target):
     return _create_entity(
         session,
@@ -201,6 +223,16 @@ def create_meta_attribute_mapping(
             entity_type=entity_type,
             entity_id=entity_id,
             meta_attr_schema_id=meta_attr_schema_id
+        )
+    )
+
+
+def create_schema_meta_attr_mapping(schema_id, meta_attr_id):
+    return _create_entity(
+        session,
+        SchemaMetaAttributeMapping(
+            schema_id=schema_id,
+            meta_attr_schema_id=meta_attr_id
         )
     )
 

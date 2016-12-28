@@ -19,78 +19,74 @@ from __future__ import unicode_literals
 import pytest
 
 from schematizer import models
-from schematizer.models import exceptions as sch_exc
 from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.page_info import PageInfo
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.testing_db import DBTestCase
 
 
-class GetAllModelTestBase(DBTestCase):
+class GetModelsBasicTests(DBTestCase):
 
-    entity_model = None
+    entity_cls = None
     create_entity_func = None
-    assert_func_name = None
 
-    @property
-    def assert_func(self):
-        return getattr(asserts, self.assert_func_name)
+    def get_assert_func(self):
+        raise NotImplementedError()
 
     @pytest.fixture
-    def entity_1(self):
-        return self.create_entity_func(1)
+    def entities(self):
+        return [self.create_entity_func() for _ in range(3)]
 
-    @pytest.fixture
-    def entity_2(self, entity_1):
-        return self.create_entity_func(2)
-
-    @pytest.fixture
-    def entity_3(self, entity_2):
-        return self.create_entity_func(3)
-
-    def test_get_all_entities(self, entity_1, entity_2, entity_3):
-        actual = self.entity_model.get_all()
+    def test_get_all_entities(self, entities):
+        actual = self.entity_cls.get_all()
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[entity_1, entity_2, entity_3],
-            assert_func=self.assert_func
+            expected_list=entities,
+            assert_func=self.get_assert_func()
         )
 
     def test_when_no_entity_exists(self):
-        actual = self.entity_model.get_all()
+        actual = self.entity_cls.get_all()
         assert actual == []
 
-    def test_get_only_one_entity(self, entity_1, entity_2, entity_3):
-        actual = self.entity_model.get_all(PageInfo(count=1))
+    def test_get_max_count_of_entities(self, entities):
+        actual = self.entity_cls.get_all(PageInfo(count=1))
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[entity_1],
-            assert_func=self.assert_func
+            expected_list=entities[0:1],
+            assert_func=self.get_assert_func()
         )
 
-    def test_filter_by_min_entity_id(self, entity_1, entity_2, entity_3):
-        actual = self.entity_model.get_all(PageInfo(min_id=entity_1.id + 1))
+    def test_filter_by_min_entity_id(self, entities):
+        entity_1 = entities[0]
+        actual = self.entity_cls.get_all(PageInfo(min_id=entity_1.id + 1))
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[entity_2, entity_3],
-            assert_func=self.assert_func
+            expected_list=entities[1:],
+            assert_func=self.get_assert_func()
         )
 
-    def test_get_only_one_entity_with_id_greater_than_min_id(
-        self,
-        entity_1,
-        entity_2,
-        entity_3
-    ):
-        actual = self.entity_model.get_all(
+    def test_get_only_one_entity_with_id_greater_than_min_id(self, entities):
+        entity_1 = entities[0]
+        actual = self.entity_cls.get_all(
             PageInfo(count=1, min_id=entity_1.id + 1)
         )
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[entity_2],
-            assert_func=self.assert_func
+            expected_list=entities[1:2],
+            assert_func=self.get_assert_func()
         )
+
+    def test_get_single_entity_by_id(self):
+        entity = self.create_entity_func()
+        actual = self.entity_cls.get_by_id(entity.id)
+        self.get_assert_func()(actual, expected=entity)
+
+    def test_get_nonexistent_entity(self):
+        with pytest.raises(EntityNotFoundError):
+            self.entity_cls.get_by_id(obj_id=0)
 
 
 class TestGetModelById(DBTestCase):
@@ -115,10 +111,6 @@ class TestGetModelById(DBTestCase):
             data_src_id=biz_source.id
         )
 
-    def test_get_data_target_by_id(self, dw_data_target):
-        actual = models.DataTarget.get_by_id(dw_data_target.id)
-        asserts.assert_equal_data_target(actual, dw_data_target)
-
     def test_get_consumer_group_by_id(self, dw_consumer_group):
         actual = models.ConsumerGroup.get_by_id(dw_consumer_group.id)
         asserts.assert_equal_consumer_group(actual, dw_consumer_group)
@@ -135,26 +127,13 @@ class TestGetModelById(DBTestCase):
             dw_consumer_group_data_source
         )
 
-    def test_get_topic_by_id(self, biz_topic):
-        actual = models.Topic.get_by_id(biz_topic.id)
-        asserts.assert_equal_topic(actual, biz_topic)
-
-    def test_get_avro_schema_by_id(self, biz_schema):
-        actual = models.AvroSchema.get_by_id(biz_schema.id)
-        asserts.assert_equal_avro_schema(actual, biz_schema)
-
     @pytest.mark.parametrize('model_cls', [
-        models.Topic,
-        models.AvroSchema,
         models.AvroSchemaElement,
-        models.Note,
-        models.SourceCategory,
-        models.DataTarget,
         models.ConsumerGroup,
         models.ConsumerGroupDataSource
     ])
     def test_get_invalid_id(self, model_cls):
-        with pytest.raises(sch_exc.EntityNotFoundError):
+        with pytest.raises(EntityNotFoundError):
             model_cls.get_by_id(0)
 
 
