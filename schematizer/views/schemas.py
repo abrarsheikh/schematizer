@@ -85,7 +85,7 @@ def register_schema(request):
         raise exceptions_v1.unprocessable_entity_exception(
             'Error "{error}" encountered decoding JSON: "{schema}"'.format(
                 error=str(e),
-                schema=request.json_body['schema']
+                schema=schema_str
             )
         )
     namespace = request.json_body['namespace']
