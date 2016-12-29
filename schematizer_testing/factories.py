@@ -63,7 +63,7 @@ def create_source(namespace_name, source_name, owner_email=None):
         entity=Source(
             namespace_id=namespace.id,
             name=source_name,
-            owner_email=owner_email or 'src@test.com'
+            owner_email=owner_email or 'test@example.com'
         )
     )
 

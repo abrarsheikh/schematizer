@@ -29,15 +29,10 @@ from tests.models.testing_db import DBTestCase
 class TestGetTopics(GetModelsBasicTests):
 
     def create_topic(self):
-        source_bar = factories.get_or_create_source(
-            namespace_name='foo',
-            source_name='bar',
-            owner_email='test.dev@example.com'
-        )
         return factories.create_topic(
             topic_name=factories.generate_name('topic'),
-            namespace_name=source_bar.namespace.name,
-            source_name=source_bar.name
+            namespace_name='foo',
+            source_name='bar'
         )
 
     entity_cls = Topic
