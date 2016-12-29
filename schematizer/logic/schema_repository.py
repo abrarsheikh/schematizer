@@ -26,10 +26,10 @@ from sqlalchemy.orm import exc as orm_exc
 
 from schematizer import models
 from schematizer.config import log
-from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
 from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_meta_attribute_mapping import (
     SchemaMetaAttributeMapping
 )
@@ -459,8 +459,9 @@ def _lock_topic_and_schemas(topic_id):
 def get_latest_topic_of_namespace_source(namespace_name, source_name):
     source = get_source_by_fullname(namespace_name, source_name)
     if not source:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find namespace {0} source {1}.".format(
+        raise EntityNotFoundError(
+            entity_cls=models.Source,
+            entity_desc='namespace {} source {}'.format(
                 namespace_name,
                 source_name
             )
@@ -595,8 +596,9 @@ def get_latest_schema_by_topic_name(topic_name):
     """
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find topic {0}.".format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     return session.query(
@@ -624,8 +626,9 @@ def is_schema_compatible(target_schema, namespace, source):
 def get_schemas_by_topic_name(topic_name, include_disabled=False):
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            'Cannot find topic {0}.'.format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     qry = session.query(
