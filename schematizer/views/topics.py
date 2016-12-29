@@ -22,8 +22,9 @@ from schematizer.api.decorators import transform_api_response
 from schematizer.api.exceptions import exceptions_v1
 from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
-from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import schema_repository
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer.models.topic import Topic
 
 
 @view_config(
@@ -36,7 +37,11 @@ def get_topic_by_topic_name(request):
     topic_name = request.matchdict.get('topic_name')
     topic = schema_repository.get_topic_by_name(topic_name)
     if topic is None:
-        raise exceptions_v1.topic_not_found_exception()
+        e = EntityNotFoundError(
+            entity_cls=Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
+        )
+        raise exceptions_v1.entity_not_found_exception(e.message)
     return responses_v1.get_topic_response_from_topic(topic)
 
 
@@ -50,8 +55,8 @@ def list_schemas_by_topic_name(request):
     topic_name = request.matchdict.get('topic_name')
     try:
         schemas = schema_repository.get_schemas_by_topic_name(topic_name)
-    except sch_exc.EntityNotFoundException:
-        raise exceptions_v1.topic_not_found_exception()
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
     return [responses_v1.get_schema_response_from_avro_schema(avro_schema)
             for avro_schema in schemas]
 
@@ -68,8 +73,8 @@ def get_latest_schema_by_topic_name(request):
         avro_schema = schema_repository.get_latest_schema_by_topic_name(
             topic_name
         )
-    except sch_exc.EntityNotFoundException:
-        raise exceptions_v1.topic_not_found_exception()
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
 
     if avro_schema is None:
         raise exceptions_v1.latest_schema_not_found_exception()

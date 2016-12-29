@@ -22,9 +22,4 @@ class EntityNotFoundError(Exception):
     def __init__(self, entity_cls=None, entity_desc=None, **extra_info):
         entity_desc = entity_desc or entity_cls.__name__
         err_message = '{} not found.'.format(entity_desc)
-        if extra_info:
-            err_message = '{} {}'.format(
-                err_message,
-                ', '.join('{}={}'.format(k, v) for k, v in extra_info.items())
-            )
         super(EntityNotFoundError, self).__init__(err_message)
