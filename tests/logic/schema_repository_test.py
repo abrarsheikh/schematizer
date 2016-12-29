@@ -25,7 +25,6 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from schematizer import models
-from schematizer.components import converters
 from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import schema_repository as schema_repo
 from schematizer.models.database import session
@@ -511,14 +510,6 @@ class TestSchemaRepository(DBTestCase):
         actual = schema_repo.get_source_by_fullname('foo', 'bar')
         assert actual is None
 
-    def test_get_schema_by_id(self, rw_schema):
-        actual = schema_repo.get_schema_by_id(rw_schema.id)
-        asserts.assert_equal_avro_schema(rw_schema, actual)
-
-    def test_get_schema_by_id_with_nonexistent_schema(self):
-        actual = schema_repo.get_schema_by_id(0)
-        assert actual is None
-
     def test_get_latest_schema_by_topic_id(self, topic, rw_schema):
         actual = schema_repo.get_latest_schema_by_topic_id(topic.id)
         asserts.assert_equal_avro_schema(rw_schema, actual)
@@ -689,40 +680,6 @@ class TestSchemaRepository(DBTestCase):
         actual = schema_repo.get_topics_by_source_id(source.id)
         assert 1 == len(actual)
         asserts.assert_equal_topic(topic, actual[0])
-
-    def test_available_converters(self):
-        expected = {
-            (models.SchemaKindEnum.MySQL, models.SchemaKindEnum.Avro):
-            converters.MySQLToAvroConverter,
-            (models.SchemaKindEnum.Avro, models.SchemaKindEnum.Redshift):
-            converters.AvroToRedshiftConverter
-        }
-        for key, value in expected.iteritems():
-            actual = schema_repo.converters[key]
-            source_type, target_type = key
-            assert source_type == actual.source_type
-            assert target_type == actual.target_type
-            assert value == actual
-
-    def test_convert_schema(self):
-        with mock.patch.object(
-            converters.MySQLToAvroConverter,
-            'convert'
-        ) as mock_converter:
-            schema_repo.convert_schema(
-                models.SchemaKindEnum.MySQL,
-                models.SchemaKindEnum.Avro,
-                self.rw_schema_json
-            )
-            mock_converter.assert_called_once_with(self.rw_schema_json)
-
-    def test_convert_schema_with_no_suitable_converter(self):
-        with pytest.raises(Exception):
-            schema_repo.convert_schema(
-                mock.Mock(),
-                mock.Mock(),
-                self.rw_schema_json
-            )
 
     def test_get_schema_elements_with_no_schema(self):
         actual = schema_repo.get_schema_elements_by_schema_id(1)
@@ -1292,21 +1249,27 @@ class TestRegisterSchema(DBTestCase):
 
     @pytest.mark.parametrize("empty_email", [(None), (' ')])
     def test_register_schema_with_empty_owner_email(self, empty_email):
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
                 source_owner_email=empty_email
             )
-        assert str(e.value) == "Source owner email must be non-empty."
 
-    @pytest.mark.parametrize("empty_src_name", [(None), (' ')])
-    def test_register_schema_with_empty_src_name(self, empty_src_name):
-        with pytest.raises(ValueError) as e:
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_namespace_name(self, invalid_name):
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
-                source_name=empty_src_name
+                namespace_name=invalid_name
             )
-        assert str(e.value) == "Source name must be non-empty."
+
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_source_name(self, invalid_name):
+        with pytest.raises(ValueError):
+            self._register_avro_schema(
+                self.avro_schema_json,
+                source_name=invalid_name
+            )
 
     def _register_avro_schema(self, avro_schema_json, **overrides):
         params = {

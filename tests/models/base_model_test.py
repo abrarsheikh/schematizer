@@ -135,10 +135,6 @@ class TestGetModelById(DBTestCase):
             dw_consumer_group_data_source
         )
 
-    def test_get_source_by_id(self, biz_source):
-        actual = models.Source.get_by_id(biz_source.id)
-        asserts.assert_equal_source(actual, biz_source)
-
     def test_get_topic_by_id(self, biz_topic):
         actual = models.Topic.get_by_id(biz_topic.id)
         asserts.assert_equal_topic(actual, biz_topic)
@@ -148,7 +144,6 @@ class TestGetModelById(DBTestCase):
         asserts.assert_equal_avro_schema(actual, biz_schema)
 
     @pytest.mark.parametrize('model_cls', [
-        models.Source,
         models.Topic,
         models.AvroSchema,
         models.AvroSchemaElement,

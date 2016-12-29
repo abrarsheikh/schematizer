@@ -16,10 +16,9 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from time import time
-
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy.types import Enum
 
@@ -66,18 +65,14 @@ class MetaAttributeMappingStore(Base, BaseModel):
     meta_attr_schema_id = Column(Integer, ForeignKey('avro_schema.id'))
 
     # Timestamp when the entry is created
-    created_at = Column(
-        Integer,
-        nullable=False,
-        default=lambda: int(time())
-    )
+    created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
 
     # Timestamp when the entry is last updated
     updated_at = Column(
         Integer,
         nullable=False,
-        default=lambda: int(time()),
-        onupdate=lambda: int(time())
+        default=func.unix_timestamp(),
+        onupdate=func.unix_timestamp()
     )
 
     @classmethod

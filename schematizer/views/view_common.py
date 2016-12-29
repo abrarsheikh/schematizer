@@ -16,11 +16,12 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from schematizer import models
 from schematizer.api.exceptions import exceptions_v1
 from schematizer.components.converters import converter_base
-from schematizer.components.handlers import sql_handler
+from schematizer.components.converters.mysql_to_avro_converter \
+    import MySQLToAvroConverter
 from schematizer.components.handlers import sql_handler_base
+from schematizer.components.handlers.mysql_handler import LoggingMySQLHandler
 from schematizer.config import log
 from schematizer.utils.utils import get_current_func_arg_name_values
 
@@ -40,15 +41,10 @@ def convert_to_avro_from_mysql(
         mysql_statements = [
             old_create_table_stmt, alter_table_stmt, new_create_table_stmt
         ]
-        sql_table = sql_handler.create_sql_table_from_sql_stmts(
-            mysql_statements,
-            sql_handler_base.SQLDialect.MySQL
+        sql_table = LoggingMySQLHandler().create_sql_table_from_sql_stmts(
+            mysql_statements
         )
-        return schema_repo.convert_schema(
-            models.SchemaKindEnum.MySQL,
-            models.SchemaKindEnum.Avro,
-            sql_table
-        )
+        return MySQLToAvroConverter().convert(src_schema=sql_table)
     except (sql_handler_base.SQLHandlerException,
             converter_base.SchemaConversionException) as e:
         log.exception('{0}'.format(get_current_func_arg_name_values()))

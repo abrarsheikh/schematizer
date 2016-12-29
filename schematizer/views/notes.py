@@ -21,10 +21,11 @@ from pyramid.view import view_config
 from schematizer.api.decorators import log_api
 from schematizer.api.decorators import transform_api_response
 from schematizer.api.exceptions import exceptions_v1
-from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
 from schematizer.logic import doc_tool
-from schematizer.logic import schema_repository
+from schematizer.models.avro_schema import AvroSchema
+from schematizer.models.avro_schema import AvroSchemaElement
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.note import ReferenceTypeEnum
 
 
@@ -36,13 +37,14 @@ from schematizer.models.note import ReferenceTypeEnum
 @transform_api_response()
 @log_api()
 def create_note(request):
-    req = requests_v1.CreateNoteRequest(**request.json_body)
-    assert_reference_exists(req.reference_type, req.reference_id)
+    reference_type = request.json_body['reference_type']
+    reference_id = request.json_body['reference_id']
+    assert_reference_exists(reference_type, reference_id)
     note = doc_tool.create_note(
-        reference_type=req.reference_type,
-        reference_id=req.reference_id,
-        note_text=req.note,
-        last_updated_by=req.last_updated_by
+        reference_type=reference_type,
+        reference_id=reference_id,
+        note_text=request.json_body['note'],
+        last_updated_by=request.json_body['last_updated_by']
     )
     return responses_v1.get_note_response_from_note(note)
 
@@ -51,16 +53,26 @@ def assert_reference_exists(reference_type, reference_id):
     """Checks to make sure that the reference for this note exists.
     If it does not, raise an exception
     """
-    if (
-        reference_type == ReferenceTypeEnum.SCHEMA and
-        schema_repository.get_schema_by_id(reference_id) is not None
-    ) or (
-        reference_type == ReferenceTypeEnum.SCHEMA_ELEMENT and
-        schema_repository.get_schema_element_by_id(reference_id) is not None
-    ):
-        # Valid. Do nothing
-        return
-    raise exceptions_v1.reference_not_found_exception()
+    model_cls = None
+    if reference_type == ReferenceTypeEnum.SCHEMA:
+        model_cls = AvroSchema
+    elif reference_type == ReferenceTypeEnum.SCHEMA_ELEMENT:
+        model_cls = AvroSchemaElement
+
+    if model_cls:
+        try:
+            return model_cls.get_by_id(reference_id)
+        except EntityNotFoundError as e:
+            raise exceptions_v1.entity_not_found_exception(e.message)
+    raise exceptions_v1.invalid_request_exception(
+        "reference_type {} is invalid. It must be one of the values: {}"
+        .format(
+            reference_type,
+            ', '.join(
+                (ReferenceTypeEnum.SCHEMA, ReferenceTypeEnum.SCHEMA_ELEMENT)
+            )
+        )
+    )
 
 
 @view_config(
@@ -71,16 +83,13 @@ def assert_reference_exists(reference_type, reference_id):
 @transform_api_response()
 @log_api()
 def update_note(request):
-    req = requests_v1.UpdateNoteRequest(**request.json_body)
-    note_id_str = request.matchdict.get('note_id')
-    note_id = int(note_id_str)
-    note = doc_tool.get_note_by_id(note_id)
-    # Raise an exception if the note cannot be found
-    if note is None:
-        raise exceptions_v1.note_not_found_exception()
-    doc_tool.update_note(
-        id=note_id,
-        note_text=req.note,
-        last_updated_by=req.last_updated_by
-    )
+    note_id = int(request.matchdict.get('note_id'))
+    try:
+        note = doc_tool.update_note(
+            note_id=note_id,
+            note_text=request.json_body['note'],
+            last_updated_by=request.json_body['last_updated_by']
+        )
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
     return responses_v1.get_note_response_from_note(note)
