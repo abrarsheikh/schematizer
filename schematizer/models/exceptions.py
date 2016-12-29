@@ -19,7 +19,7 @@ from __future__ import unicode_literals
 
 class EntityNotFoundError(Exception):
 
-    def __init__(self, entity_cls=None, entity_desc=None, **extra_info):
+    def __init__(self, entity_cls=None, entity_desc=None):
         entity_desc = entity_desc or entity_cls.__name__
         err_message = '{} not found.'.format(entity_desc)
         super(EntityNotFoundError, self).__init__(err_message)
