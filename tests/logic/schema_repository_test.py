@@ -25,7 +25,6 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from schematizer import models
-from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import schema_repository as schema_repo
 from schematizer.models.database import session
 from schematizer.models.exceptions import EntityNotFoundError
@@ -440,7 +439,7 @@ class TestSchemaRepository(DBTestCase):
         assert actual is None
 
     def test_get_latest_topic_of_source_with_nonexistent_source(self):
-        with pytest.raises(sch_exc.EntityNotFoundException):
+        with pytest.raises(EntityNotFoundError):
             schema_repo.get_latest_topic_of_namespace_source('foo', 'bar')
 
     def test_get_latest_topic_of_source_id_with_no_topic(self, source):
@@ -536,7 +535,7 @@ class TestSchemaRepository(DBTestCase):
         asserts.assert_equal_avro_schema(rw_schema, actual)
 
     def test_get_latest_schema_by_topic_name_with_nonexistent_topic(self):
-        with pytest.raises(sch_exc.EntityNotFoundException):
+        with pytest.raises(EntityNotFoundError):
             schema_repo.get_latest_schema_by_topic_name('_bad.topic')
 
     @pytest.mark.usefixtures('rw_schema', 'disabled_schema')
@@ -553,7 +552,7 @@ class TestSchemaRepository(DBTestCase):
         assert expected == actual
 
     def test_is_schema_compatible_with_nonexistent_source(self):
-        with pytest.raises(sch_exc.EntityNotFoundException):
+        with pytest.raises(EntityNotFoundError):
             schema_repo.is_schema_compatible('avro schema', 'foo', 'bar')
 
     def test_get_schemas_by_topic_name(self, topic, rw_schema):
@@ -575,7 +574,7 @@ class TestSchemaRepository(DBTestCase):
         )
 
     def test_get_schemas_by_topic_name_with_nonexistent_topic(self):
-        with pytest.raises(sch_exc.EntityNotFoundException):
+        with pytest.raises(EntityNotFoundError):
             schema_repo.get_schemas_by_topic_name('foo')
 
     def test_get_schemas_by_topic_id(self, topic, rw_schema):
@@ -1187,21 +1186,27 @@ class TestRegisterSchema(DBTestCase):
 
     @pytest.mark.parametrize("empty_email", [(None), (' ')])
     def test_register_schema_with_empty_owner_email(self, empty_email):
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
                 source_owner_email=empty_email
             )
-        assert str(e.value) == "Source owner email must be non-empty."
 
-    @pytest.mark.parametrize("empty_src_name", [(None), (' ')])
-    def test_register_schema_with_empty_src_name(self, empty_src_name):
-        with pytest.raises(ValueError) as e:
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_namespace_name(self, invalid_name):
+        with pytest.raises(ValueError):
             self._register_avro_schema(
                 self.avro_schema_json,
-                source_name=empty_src_name
+                namespace_name=invalid_name
             )
-        assert str(e.value) == "Source name must be non-empty."
+
+    @pytest.mark.parametrize("invalid_name", [None, ' ', '123', 'a|b'])
+    def test_register_schema_with_invalid_source_name(self, invalid_name):
+        with pytest.raises(ValueError):
+            self._register_avro_schema(
+                self.avro_schema_json,
+                source_name=invalid_name
+            )
 
     def _register_avro_schema(self, avro_schema_json, **overrides):
         params = {

@@ -26,10 +26,10 @@ from sqlalchemy.orm import exc as orm_exc
 
 from schematizer import models
 from schematizer.config import log
-from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
 from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_meta_attribute_mapping import (
     SchemaMetaAttributeMapping
 )
@@ -99,11 +99,15 @@ def register_avro_schema_from_avro_json(
     Return:
         New created AvroSchema object.
     """
-    source_owner_email = _strip_if_not_none(source_owner_email)
+    namespace_name = _strip_if_not_none(namespace_name)
     source_name = _strip_if_not_none(source_name)
+    source_owner_email = _strip_if_not_none(source_owner_email)
 
-    _assert_non_empty_email(source_owner_email)
-    _assert_non_empty_src_name(source_name)
+    _assert_non_empty_name(namespace_name, "Namespace name")
+    _assert_non_empty_name(source_name, "Source name")
+    _assert_non_empty_name(source_owner_email, "Source owner email")
+    _assert_valid_name(namespace_name, "Namespace name")
+    _assert_valid_name(source_name, "Source name")
 
     is_valid, error = models.AvroSchema.verify_avro_schema(avro_schema_json)
     if not is_valid:
@@ -393,14 +397,23 @@ def _create_source_if_not_exist(namespace_id, source_name, owner_email):
     return new_source
 
 
-def _assert_non_empty_email(email):
-    if not email or email.strip() == "":
-        raise ValueError("Source owner email must be non-empty.")
+def _assert_non_empty_name(name, name_type):
+    if not name:
+        raise ValueError('{} must be non-empty.'.format(name_type))
 
 
-def _assert_non_empty_src_name(name):
-    if not name or name.strip() == "":
-        raise ValueError("Source name must be non-empty.")
+def _assert_valid_name(name, name_type):
+    if not name:
+        return
+    if '|' in name:
+        # Restrict '|' to avoid ambiguity when parsing input of
+        # data_pipeline tailer. One of the tailer arguments is topic
+        # and optional offset separated by '|'.
+        raise ValueError(
+            '{} must not contain restricted character |'.format(name_type)
+        )
+    if name.isdigit():
+        raise ValueError('{} must not be numeric.'.format(name_type))
 
 
 def _get_source_by_namespace_id_and_src_name(namespace_id, source):
@@ -446,8 +459,9 @@ def _lock_topic_and_schemas(topic_id):
 def get_latest_topic_of_namespace_source(namespace_name, source_name):
     source = get_source_by_fullname(namespace_name, source_name)
     if not source:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find namespace {0} source {1}.".format(
+        raise EntityNotFoundError(
+            entity_cls=models.Source,
+            entity_desc='namespace {} source {}'.format(
                 namespace_name,
                 source_name
             )
@@ -582,8 +596,9 @@ def get_latest_schema_by_topic_name(topic_name):
     """
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find topic {0}.".format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     return session.query(
@@ -611,8 +626,9 @@ def is_schema_compatible(target_schema, namespace, source):
 def get_schemas_by_topic_name(topic_name, include_disabled=False):
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            'Cannot find topic {0}.'.format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     qry = session.query(
