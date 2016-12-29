@@ -21,8 +21,10 @@ import time
 import mock
 import pytest
 import simplejson
+import staticconf.testing
 
 from schematizer import models
+from schematizer.api.requests.requests_v1 import DEFAULT_KAFKA_CLUSTER_TYPE
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views
 from schematizer_testing import factories
@@ -151,14 +153,19 @@ class RegisterSchemaTestBase(ApiTestBase):
 
 class TestRegisterSchema(RegisterSchemaTestBase):
 
+    @property
+    def avro_schema(self):
+        return {"type": "map", "values": "int"}
+
     @pytest.fixture
-    def request_json(self, biz_schema_json, biz_source):
+    def request_json(self):
         return {
-            "schema": simplejson.dumps(biz_schema_json),
-            "namespace": biz_source.namespace.name,
-            "source": biz_source.name,
-            "source_owner_email": 'biz.user@yelp.com',
-            'contains_pii': False
+            "schema": simplejson.dumps(self.avro_schema),
+            "namespace": 'foo',
+            "source": 'bar',
+            "source_owner_email": 'test@example.com',
+            "contains_pii": False,
+            "cluster_type": 'example_cluster_type'
         }
 
     def test_register_schema(self, mock_request, request_json):
@@ -197,45 +204,28 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         assert e.value.code == expected_exception.code
         assert "Invalid Avro schema JSON." in str(e.value)
 
-    @pytest.mark.parametrize("biz_schema_without_doc_json", [
+    @pytest.mark.parametrize("schema_without_doc", [
         {
-            "name": "biz",
+            "name": "record_without_doc",
             "type": "record",
-            "fields": [{
-                "name": "id",
-                "type": "int",
-                "doc": "id",
-                "default": 0
-            }],
+            "fields": [{"name": "id", "type": "int", "doc": "id"}],
         },
         {
-            "name": "biz",
+            "name": "record_with_empty_doc",
             "type": "record",
-            "fields": [{"name": "id",
-                        "type": "int",
-                        "doc": "id",
-                        "default": 0
-                        }],
+            "fields": [{"name": "id", "type": "int", "doc": "id"}],
             "doc": ""
         },
         {
-            "name": "biz",
+            "name": "record_field_without_doc",
             "type": "record",
-            "fields": [{
-                "name": "id",
-                "type": "int",
-                "default": 0
-            }],
+            "fields": [{"name": "id", "type": "int"}],
             "doc": "doc"
         },
         {
-            "name": "biz",
+            "name": "record_field_with_empty_doc",
             "type": "record",
-            "fields": [{"name": "id",
-                        "type": "int",
-                        "doc": "   ",
-                        "default": 0
-                        }],
+            "fields": [{"name": "id", "type": "int", "doc": "  "}],
             "doc": "doc"
         },
     ])
@@ -243,9 +233,9 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         self,
         mock_request,
         request_json,
-        biz_schema_without_doc_json
+        schema_without_doc
     ):
-        request_json['schema'] = simplejson.dumps(biz_schema_without_doc_json)
+        request_json['schema'] = simplejson.dumps(schema_without_doc)
         mock_request.json_body = request_json
 
         expected_exception = self.get_http_exception(422)
@@ -256,62 +246,46 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         assert "Missing `doc` " in str(e.value)
 
     @property
-    def biz_wl_schema_json(self):
-        return {
-            "name": "biz_wl",
-            "type": "record",
-            "fields": [{"name": "id", "type": "int", "default": 0}],
-            "doc": ""
-        }
+    def whitelisted_namespace(self):
+        return 'whitelisted_namespace'
 
-    def test_register_missing_doc_schema_NS_whitelisted(
+    @pytest.yield_fixture(autouse=True, scope='module')
+    def mock_namespace_whitelist(self):
+        with staticconf.testing.MockConfiguration(
+            {'namespace_no_doc_required': [self.whitelisted_namespace]}
+        ):
+            yield
+
+    def test_register_schema_without_doc_in_whitelisted_namespace(
         self,
         mock_request,
         request_json
     ):
-        request_json['schema'] = simplejson.dumps(self.biz_wl_schema_json)
-        request_json['namespace'] = 'yelp_wl'
+        request_json['schema'] = simplejson.dumps({
+            "type": "record",
+            "name": "foo",
+            "fields": [{"name": "bar", "type": "int"}]
+        })
+        request_json['namespace'] = self.whitelisted_namespace
         mock_request.json_body = request_json
         actual = schema_views.register_schema(mock_request)
         self._assert_equal_schema_response(actual, request_json)
 
-    def test_register_invalid_namespace_name(self, mock_request, request_json):
-        request_json['namespace'] = 'yelp|main'
-        mock_request.json_body = request_json
-
-        expected_exception = self.get_http_exception(400)
-        with pytest.raises(expected_exception) as e:
-            schema_views.register_schema(mock_request)
-
-        assert e.value.code == expected_exception.code
-        assert str(e.value) == (
-            'Source name or Namespace name should not contain the '
-            'restricted character: |'
-        )
-
-    def test_register_invalid_numeric_src_name(
+    @pytest.mark.parametrize(
+        "invalid_name, expected_error",
+        [(None, "Namespace name must be non-empty."),
+         (' ', "Namespace name must be non-empty."),
+         ('123', "Namespace name must not be numeric."),
+         ('a|b', "Namespace name must not contain restricted character |")]
+    )
+    def test_register_schema_with_invalid_namespace_name(
         self,
         mock_request,
-        request_json
+        request_json,
+        invalid_name,
+        expected_error
     ):
-        request_json['source'] = '12345'
-        mock_request.json_body = request_json
-
-        expected_exception = self.get_http_exception(400)
-        with pytest.raises(expected_exception) as e:
-            schema_views.register_schema(mock_request)
-
-        assert e.value.code == expected_exception.code
-        assert str(e.value) == 'Source or Namespace name should not be numeric'
-
-    @pytest.mark.parametrize("src_name", [(None), (' ')])
-    def test_register_empty_src_name(
-        self,
-        src_name,
-        mock_request,
-        request_json
-    ):
-        request_json['source'] = src_name
+        request_json['namespace'] = invalid_name
         mock_request.json_body = request_json
 
         expected_exception = self.get_http_exception(422)
@@ -319,16 +293,40 @@ class TestRegisterSchema(RegisterSchemaTestBase):
             schema_views.register_schema(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == "Source name must be non-empty."
+        assert str(e.value) == expected_error
 
-    @pytest.mark.parametrize("email", [(None), (' ')])
-    def test_register_empty_args(
+    @pytest.mark.parametrize(
+        "invalid_name, expected_error",
+        [(None, "Source name must be non-empty."),
+         (' ', "Source name must be non-empty."),
+         ('123', "Source name must not be numeric."),
+         ('a|b', "Source name must not contain restricted character |")]
+    )
+    def test_register_schema_with_invalid_source_name(
         self,
-        email,
+        mock_request,
+        request_json,
+        invalid_name,
+        expected_error
+    ):
+        request_json['source'] = invalid_name
+        mock_request.json_body = request_json
+
+        expected_exception = self.get_http_exception(422)
+        with pytest.raises(expected_exception) as e:
+            schema_views.register_schema(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == expected_error
+
+    @pytest.mark.parametrize("invalid_email", [None, ' '])
+    def test_register_schema_with_empty_owner_email(
+        self,
+        invalid_email,
         mock_request,
         request_json
     ):
-        request_json['source_owner_email'] = email
+        request_json['source_owner_email'] = invalid_email
         mock_request.json_body = request_json
 
         expected_exception = self.get_http_exception(422)
@@ -343,9 +341,11 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         mock_request,
         request_json
     ):
+        request_json.pop('cluster_type', None)
         mock_request.json_body = request_json
         actual = schema_views.register_schema(mock_request)
         self._assert_equal_schema_response(actual, request_json)
+        assert actual['topic']['cluster_type'] == DEFAULT_KAFKA_CLUSTER_TYPE
 
     def test_register_schema_with_cluster_type(
         self,

@@ -31,32 +31,6 @@ class RequestBase(object):
     pass
 
 
-class RegisterSchemaRequest(RequestBase):
-
-    def __init__(
-        self,
-        schema,
-        namespace,
-        source,
-        source_owner_email,
-        contains_pii=False,
-        cluster_type=DEFAULT_KAFKA_CLUSTER_TYPE,
-        base_schema_id=None
-    ):
-        super(RegisterSchemaRequest, self).__init__()
-        self.schema = schema
-        self.namespace = namespace
-        self.source = source
-        self.source_owner_email = source_owner_email
-        self.base_schema_id = base_schema_id
-        self.contains_pii = contains_pii
-        self.cluster_type = cluster_type
-
-    @cached_property
-    def schema_json(self):
-        return simplejson.loads(self.schema) if self.schema else None
-
-
 class RegisterSchemaFromMySqlRequest(RequestBase):
 
     def __init__(
