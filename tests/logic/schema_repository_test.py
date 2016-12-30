@@ -16,11 +16,8 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import copy
 import datetime
-import time
 
-import mock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
@@ -46,10 +43,6 @@ class TestSchemaRepository(DBTestCase):
     @property
     def namespace_name(self):
         return 'foo'
-
-    @property
-    def transformed_namespace_name(self):
-        return 'foo_transformed'
 
     @property
     def source_name(self):
@@ -104,69 +97,18 @@ class TestSchemaRepository(DBTestCase):
     def some_datetime(self):
         return datetime.datetime(2014, 8, 11, 19, 23, 5, 254)
 
-    @property
-    def topic_name(self):
-        return 'topic_one'
-
     @pytest.fixture
     def topic(self):
         return factories.create_topic(
-            topic_name=self.topic_name,
+            topic_name='topic_one',
             namespace_name=self.namespace_name,
             source_name=self.source_name,
             created_at=self.some_datetime + datetime.timedelta(seconds=1)
         )
 
-    @property
-    def transformed_topic_name(self):
-        return 'topic_one_transformed'
-
-    @pytest.fixture
-    def transformed_topic(self):
-        return factories.create_topic(
-            self.transformed_topic_name,
-            self.transformed_namespace_name,
-            self.source_name
-        )
-
-    @property
-    def offset(self):
-        return 0
-
-    @property
-    def batch_size(self):
-        return 100
-
-    @property
-    def priority(self):
-        return 50
-
-    @property
-    def filter_condition(self):
-        return 'user=test_user'
-
-    @property
-    def avg_rows_per_second_cap(self):
-        return 1000
-
-    @property
-    def status(self):
-        return 'SUCCESS'
-
-    @property
-    def status_value(self):
-        return 3
-
     @pytest.fixture
     def refresh(self, source):
-        return factories.create_refresh(
-            source_id=source.id,
-            offset=self.offset,
-            batch_size=self.batch_size,
-            priority=self.priority,
-            filter_condition=self.filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
-        )
+        return factories.create_refresh(source_id=source.id)
 
     @property
     def rw_schema_name(self):
@@ -227,57 +169,6 @@ class TestSchemaRepository(DBTestCase):
         )
 
     @property
-    def rw_transformed_schema_json(self):
-        schema_json = copy.deepcopy(self.rw_schema_json)
-        schema_json['namespace'] = self.transformed_namespace_name
-        schema_json['fields'].append(
-            {"name": "bar_str", "type": "string", "doc": "bar_str"}
-        )
-        return schema_json
-
-    @property
-    def rw_transformed_schema_elements(self):
-        return self._build_elements(self.rw_transformed_schema_json)
-
-    @pytest.fixture
-    def rw_transformed_schema(self, transformed_topic, rw_schema):
-        return factories.create_avro_schema(
-            self.rw_transformed_schema_json,
-            self.rw_transformed_schema_elements,
-            topic_name=transformed_topic.name,
-            base_schema_id=rw_schema.id
-        )
-
-    @property
-    def rw_transformed_schema_v2_json(self):
-        schema_json = copy.deepcopy(self.rw_transformed_schema_json)
-        schema_json['fields'].append(
-            {
-                "name": "bar_double",
-                "type": "double",
-                "doc": "bar_double",
-                "default": 0.0
-            }
-        )
-        return schema_json
-
-    @property
-    def rw_transformed_schema_v2_elements(self):
-        return self._build_elements(self.rw_transformed_schema_v2_json)
-
-    @pytest.fixture
-    def rw_transformed_v2_schema(self, transformed_topic, rw_schema):
-        """Represents an upgrade to the ASTs (v2) which produces a different
-        (but compatible) transformed schema from the same base
-        """
-        return factories.create_avro_schema(
-            self.rw_transformed_schema_v2_json,
-            self.rw_transformed_schema_v2_elements,
-            topic_name=transformed_topic.name,
-            base_schema_id=rw_schema.id
-        )
-
-    @property
     def another_rw_schema_json(self):
         return {
             "name": self.rw_schema_name,
@@ -298,32 +189,6 @@ class TestSchemaRepository(DBTestCase):
             self.another_rw_schema_elements,
             topic_name=topic.name,
             created_at=self.some_datetime + datetime.timedelta(seconds=4)
-        )
-
-    @property
-    def another_rw_transformed_schema_json(self):
-        schema_json = copy.deepcopy(self.another_rw_schema_json)
-        schema_json['namespace'] = self.transformed_namespace_name
-        schema_json['fields'].append(
-            {"name": "baz_str", "type": "string", "doc": "baz_str"}
-        )
-        return schema_json
-
-    @property
-    def another_rw_transformed_schema_elements(self):
-        return self._build_elements(self.another_rw_transformed_schema_json)
-
-    @pytest.fixture
-    def another_rw_transformed_schema(
-            self,
-            transformed_topic,
-            another_rw_schema
-    ):
-        return factories.create_avro_schema(
-            self.another_rw_transformed_schema_json,
-            self.another_rw_transformed_schema_elements,
-            topic_name=transformed_topic.name,
-            base_schema_id=another_rw_schema.id
         )
 
     @property
@@ -349,14 +214,6 @@ class TestSchemaRepository(DBTestCase):
             status=models.AvroSchemaStatus.DISABLED,
             created_at=self.some_datetime + datetime.timedelta(seconds=5)
         )
-
-    @pytest.yield_fixture
-    def mock_compatible_func(self):
-        with mock.patch(
-            'schematizer.logic.schema_repository.'
-            'SchemaCompatibilityValidator.is_backward_compatible'
-        ) as mock_func:
-            yield mock_func
 
     @pytest.fixture
     def setup_meta_attr_mapping(self, meta_attr_schema, biz_source):
@@ -411,18 +268,6 @@ class TestSchemaRepository(DBTestCase):
         )
         asserts.assert_equal_topic(new_topic, actual)
 
-    def test_get_latest_topic_of_source_id(self, source, topic):
-        actual = schema_repo.get_latest_topic_of_source_id(source.id)
-        asserts.assert_equal_topic(topic, actual)
-
-        new_topic = factories.create_topic(
-            topic_name='new_topic',
-            namespace_name=source.namespace.name,
-            source_name=source.name
-        )
-        actual = schema_repo.get_latest_topic_of_source_id(source.id)
-        asserts.assert_equal_topic(new_topic, actual)
-
     def test_get_latest_topic_of_source_with_no_topic(self, namespace, source):
         # clear all the topics of the source
         topics = session.query(models.Topic).filter(
@@ -442,56 +287,8 @@ class TestSchemaRepository(DBTestCase):
         with pytest.raises(EntityNotFoundError):
             schema_repo.get_latest_topic_of_namespace_source('foo', 'bar')
 
-    def test_get_latest_topic_of_source_id_with_no_topic(self, source):
-        actual = schema_repo.get_latest_topic_of_source_id(source.id)
-        assert actual is None
-
-    def test_get_latest_topic_of_source_id_with_nonexistent_source(self):
-        actual = schema_repo.get_latest_topic_of_source_id(0)
-        assert actual is None
-
-    @pytest.mark.usefixtures('source', 'rw_schema', 'disabled_schema')
-    @pytest.mark.parametrize(
-        "is_compatible, meta_attributes_for_schema_id, "
-        "meta_attributes_for_source, expected_output", [
-            (True, [10, 20], [10, 20], True),
-            (True, [10, 20], [10, 30], False),
-            (False, [10, 20], [10, 20], False),
-            (False, [10, 20], [10, 30], False),
-        ])
-    def test_is_schema_compatible_in_topic(
-        self,
-        topic,
-        mock_compatible_func,
-        is_compatible,
-        meta_attributes_for_schema_id,
-        meta_attributes_for_source,
-        expected_output
-    ):
-        with mock.patch(
-            'schematizer.logic.schema_repository.'
-            'meta_attr_repo.get_meta_attributes_by_source',
-            return_value=meta_attributes_for_source
-        ), mock.patch(
-            'schematizer.logic.schema_repository.'
-            'get_meta_attributes_by_schema_id',
-            return_value=meta_attributes_for_schema_id
-        ):
-            mock_compatible_func.return_value = is_compatible
-
-            actual = schema_repo.is_schema_compatible_in_topic(
-                self.rw_schema_json,
-                topic
-            )
-            assert actual == expected_output
-
-    @pytest.mark.usefixtures('disabled_schema')
-    def test_is_schema_compatible_in_topic_with_no_enabled_schema(self, topic):
-        actual = schema_repo.is_schema_compatible_in_topic('int', topic)
-        assert actual is True
-
     def test_get_topic_by_name(self, topic):
-        actual = schema_repo.get_topic_by_name(self.topic_name)
+        actual = schema_repo.get_topic_by_name(topic.name)
         asserts.assert_equal_topic(topic, actual)
 
     def test_get_topic_by_name_with_nonexistent_topic(self):
@@ -537,23 +334,6 @@ class TestSchemaRepository(DBTestCase):
     def test_get_latest_schema_by_topic_name_with_nonexistent_topic(self):
         with pytest.raises(EntityNotFoundError):
             schema_repo.get_latest_schema_by_topic_name('_bad.topic')
-
-    @pytest.mark.usefixtures('rw_schema', 'disabled_schema')
-    @pytest.mark.parametrize("is_compatible", [True, False])
-    def test_is_schema_compatible(self, mock_compatible_func, is_compatible):
-        mock_compatible_func.return_value = is_compatible
-        target_schema = 'avro schema to be validated'
-        actual = schema_repo.is_schema_compatible(
-            target_schema,
-            self.namespace_name,
-            self.source_name
-        )
-        expected = mock_compatible_func.return_value
-        assert expected == actual
-
-    def test_is_schema_compatible_with_nonexistent_source(self):
-        with pytest.raises(EntityNotFoundError):
-            schema_repo.is_schema_compatible('avro schema', 'foo', 'bar')
 
     def test_get_schemas_by_topic_name(self, topic, rw_schema):
         actual = schema_repo.get_schemas_by_topic_name(topic.name)
@@ -602,79 +382,6 @@ class TestSchemaRepository(DBTestCase):
         actual = schema_repo.get_schemas_by_topic_id(0)
         assert [] == actual
 
-    def test_get_schemas_by_namespace_name(
-        self,
-        rw_schema
-    ):
-        actual = schema_repo.get_schemas_by_criteria(self.namespace_name)
-        assert len(actual) == 1
-        asserts.assert_equal_avro_schema(rw_schema, actual[0])
-
-    def test_get_schemas_by_namespace_and_source_name(
-        self,
-        rw_schema
-    ):
-        actual = schema_repo.get_schemas_by_criteria(
-            self.namespace_name,
-            source_name=self.source_name
-        )
-        asserts.assert_equal_entity_list(
-            actual_list=actual,
-            expected_list=[rw_schema],
-            assert_func=asserts.assert_equal_avro_schema
-        )
-
-    def test_get_schemas_by_namespace_and_nonexistant_source_name(self):
-        actual = schema_repo.get_schemas_by_criteria(
-            self.namespace_name,
-            source_name="this_source_does_not_exist"
-        )
-        assert not actual
-
-    def test_get_schemas_by_nonexistant_namespace(self):
-        actual = schema_repo.get_schemas_by_criteria(
-            "this_namespace_doesnt_exist"
-        )
-        assert not actual
-
-    def test_mark_schema_disabled(self, rw_schema):
-        schema_repo.mark_schema_disabled(rw_schema.id)
-        actual = session.query(
-            models.AvroSchema
-        ).filter(
-            models.AvroSchema.id == rw_schema.id
-        ).one()
-        assert models.AvroSchemaStatus.DISABLED == actual.status
-
-    def test_mark_schema_disabled_with_nonexisted_schema(self, rw_schema):
-        # nothing should happen
-        schema_repo.mark_schema_disabled(0)
-        actual = session.query(
-            models.AvroSchema
-        ).filter(
-            models.AvroSchema.id == rw_schema.id
-        ).one()
-        assert models.AvroSchemaStatus.READ_AND_WRITE == actual.status
-
-    def test_mark_schema_readonly(self, rw_schema):
-        schema_repo.mark_schema_readonly(rw_schema.id)
-        actual = session.query(
-            models.AvroSchema
-        ).filter(
-            models.AvroSchema.id == rw_schema.id
-        ).one()
-        assert models.AvroSchemaStatus.READ_ONLY == actual.status
-
-    def test_mark_schema_readonly_with_nonexisted_schema(self, rw_schema):
-        # nothing should happen
-        schema_repo.mark_schema_readonly(0)
-        actual = session.query(
-            models.AvroSchema
-        ).filter(
-            models.AvroSchema.id == rw_schema.id
-        ).one()
-        assert models.AvroSchemaStatus.READ_AND_WRITE == actual.status
-
     def test_get_topics_by_source_id(self, source, topic):
         actual = schema_repo.get_topics_by_source_id(source.id)
         assert 1 == len(actual)
@@ -696,11 +403,11 @@ class TestSchemaRepository(DBTestCase):
         source = factories.create_source('foo_namespace', 'bar_source')
         actual = schema_repo.create_refresh(
             source_id=source.id,
-            offset=self.offset,
-            batch_size=self.batch_size,
-            priority=self.priority,
-            filter_condition=self.filter_condition,
-            avg_rows_per_second_cap=self.avg_rows_per_second_cap
+            offset=0,
+            batch_size=200,
+            priority=50,
+            filter_condition='user="someone"',
+            avg_rows_per_second_cap=100
         )
         expected = utils.get_entity_by_id(models.Refresh, actual.id)
         asserts.assert_equal_refresh(actual, expected)
@@ -950,32 +657,6 @@ class TestRegisterSchema(DBTestCase):
                 cluster_type=None
             )
 
-    def test_register_full_compatible_schema(self):
-        # adding new field with default value is compatible change
-        compatible_schema_json = dict(self.avro_schema_json)
-        compatible_schema_json['fields'].append(
-            {"type": "long", "name": "amount", "doc": "amount", "default": 0}
-        )
-
-        schema_one = self._register_avro_schema(self.avro_schema_json)
-        schema_two = self._register_avro_schema(compatible_schema_json)
-
-        assert schema_one.id != schema_two.id
-        asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
-
-    def test_register_incompatible_schema(self):
-        # changing field type from int to string is incompatible change
-        incompatible_schema_json = dict(self.avro_schema_json)
-        incompatible_schema_json['fields'][0]['type'] = 'string'
-
-        schema_one = self._register_avro_schema(self.avro_schema_json)
-        schema_two = self._register_avro_schema(incompatible_schema_json)
-
-        assert schema_one.topic.id != schema_two.topic.id
-        asserts.assert_equal_source(
-            schema_one.topic.source, schema_two.topic.source
-        )
-
     def test_register_same_schema_with_same_base_schema(self):
         result_a1 = self._register_avro_schema(
             self.avro_schema_json,
@@ -1036,6 +717,56 @@ class TestRegisterSchema(DBTestCase):
         )
         assert schema_one.id != schema_three.id
         asserts.assert_equal_topic(schema_one.topic, schema_three.topic)
+
+    def test_register_full_compatible_schema(self):
+        # adding new field with default value is compatible change
+        compatible_schema_json = dict(self.avro_schema_json)
+        compatible_schema_json['fields'].append(
+            {"type": "long", "name": "amount", "doc": "amount", "default": 0}
+        )
+
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(compatible_schema_json)
+
+        assert schema_one.id != schema_two.id
+        asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
+
+    def test_register_incompatible_schema(self):
+        # changing field type from int to string is incompatible change
+        incompatible_schema_json = dict(self.avro_schema_json)
+        incompatible_schema_json['fields'][0]['type'] = 'string'
+
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+        schema_two = self._register_avro_schema(incompatible_schema_json)
+
+        assert schema_one.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_one.topic.source, schema_two.topic.source
+        )
+
+    def test_check_schema_compatibility_with_all_enabled_schems(self):
+        schema_one_json = dict(self.avro_schema_json)
+        schema_one_json['fields'].append(
+            {"type": "long", "name": "abc", "doc": "abc", "default": 0}
+        )
+        schema_one = self._register_avro_schema(schema_one_json)
+
+        # remove one column is compatible change
+        schema_two = self._register_avro_schema(self.avro_schema_json)
+
+        assert schema_one.id != schema_two.id
+        asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
+
+        schema_three_json = dict(schema_one_json)
+        schema_three_json['fields'][-1] = {
+            "type": "string", "name": "abc", "doc": "abc", "default": ''
+        }
+        schema_three = self._register_avro_schema(schema_three_json)
+
+        assert schema_three.topic.id != schema_two.topic.id
+        asserts.assert_equal_source(
+            schema_three.topic.source, schema_two.topic.source
+        )
 
     @pytest.fixture
     def meta_attr_one_id(self):
@@ -1230,8 +961,91 @@ class TestRegisterSchema(DBTestCase):
         return {entry[0] for entry in result}
 
 
+class TestSchemaCompatibility(DBTestCase):
+
+    @property
+    def schema_one(self):
+        return {
+            "type": "record",
+            "name": "example_schema",
+            "doc": "example schema for test",
+            "fields": [{"type": "int", "name": "id", "doc": "id"}]
+        }
+
+    @property
+    def schema_with_int_field(self):
+        schema = dict(self.schema_one)
+        schema['fields'].append(
+            {"type": "int", "name": "abc", "doc": "abc", "default": 0}
+        )
+        return schema
+
+    @property
+    def schema_with_string_field(self):
+        schema = dict(self.schema_one)
+        schema['fields'].append(
+            {"type": "string", "name": "abc", "doc": "abc", "default": ""}
+        )
+        return schema
+
+    def test_is_schema_compatible(self):
+        factories.create_avro_schema(
+            self.schema_one,
+            namespace='foo',
+            source='bar'
+        )
+        assert schema_repo.is_schema_compatible(
+            self.schema_with_int_field,
+            namespace='foo',
+            source='bar'
+        )
+
+    def test_schema_is_not_compatible_with_all_schemas(self):
+        factories.create_avro_schema(
+            self.schema_with_int_field,
+            namespace='foo',
+            source='bar'
+        )
+        factories.create_avro_schema(
+            self.schema_one,
+            namespace='foo',
+            source='bar'
+        )
+        assert not schema_repo.is_schema_compatible(
+            self.schema_with_string_field,
+            namespace='foo',
+            source='bar'
+        )
+
+    def test_only_check_compatibility_with_enabled_schemas(self):
+        factories.create_avro_schema(
+            self.schema_with_int_field,
+            namespace='foo',
+            source='bar',
+            status=models.AvroSchemaStatus.DISABLED
+        )
+        factories.create_avro_schema(
+            self.schema_one,
+            namespace='foo',
+            source='bar'
+        )
+        assert schema_repo.is_schema_compatible(
+            self.schema_with_string_field,
+            namespace='foo',
+            source='bar'
+        )
+
+    def test_is_schema_compatible_with_nonexistent_source(self):
+        with pytest.raises(EntityNotFoundError):
+            schema_repo.is_schema_compatible(
+                self.schema_one,
+                namespace='bad_namespace',
+                source='bad_source'
+            )
+
+
 @pytest.mark.usefixtures('sorted_topics', 'sorted_refreshes')
-class TestByCriteria(DBTestCase):
+class TestGetRefreshesByCriteria(DBTestCase):
 
     @pytest.fixture
     def yelp_namespace(self):
@@ -1385,129 +1199,371 @@ class TestByCriteria(DBTestCase):
 
 class TestGetTopicsByCriteria(DBTestCase):
 
-    @property
-    def namespace_foo(self):
-        return 'foo'
-
-    @property
-    def source_bar(self):
-        return 'bar'
-
-    @property
-    def source_baz(self):
-        return 'baz'
-
-    @property
-    def namespace_abc(self):
-        return 'abc'
-
     @pytest.fixture
-    def topic_foo_bar(self):
+    def topic_1_in_foo_bar(self):
         return factories.create_topic(
-            topic_name='topic_foo_bar',
-            namespace_name=self.namespace_foo,
-            source_name=self.source_bar
+            topic_name='topic_1',
+            namespace_name='foo',
+            source_name='bar'
         )
 
     @pytest.fixture
-    def topic_foo_baz(self, topic_foo_bar):
+    def topic_2_in_foo_baz(self, topic_1_in_foo_bar):
         # reference topic_foo_bar fixture to make sure it's created first.
-        time.sleep(1)
         return factories.create_topic(
-            topic_name='topic_foo_baz',
-            namespace_name=self.namespace_foo,
-            source_name=self.source_baz
+            topic_name='topic_2',
+            namespace_name='foo',
+            source_name='baz',
+            created_at=topic_1_in_foo_bar.created_at + 1,
+            updated_at=topic_1_in_foo_bar.updated_at + 1
         )
 
     @pytest.fixture
-    def topic_abc_bar(self, topic_foo_baz):
-        time.sleep(1)
+    def topic_3_in_abc_bar(self, topic_2_in_foo_baz):
         return factories.create_topic(
-            topic_name='topic_abc_bar',
-            namespace_name=self.namespace_abc,
-            source_name=self.source_bar
+            topic_name='topic_3',
+            namespace_name='abc',
+            source_name='bar',
+            created_at=topic_2_in_foo_baz.created_at + 1,
+            updated_at=topic_2_in_foo_baz.updated_at + 1
         )
 
-    @pytest.fixture(autouse=True)
-    def sorted_topics(self, topic_foo_bar, topic_foo_baz, topic_abc_bar):
-        return [topic_foo_bar, topic_foo_baz, topic_abc_bar]
-
-    def test_get_all_topics(self, sorted_topics):
+    def test_get_all_topics(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
         actual = schema_repo.get_topics_by_criteria()
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=sorted_topics,
+            expected_list=[
+                topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+            ],
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_get_topics_after_given_timestamp(self, sorted_topics):
-        expected = sorted_topics[1:]
-        after_dt = expected[0].created_at
-
-        actual = schema_repo.get_topics_by_criteria(created_after=after_dt)
+    def test_get_topics_after_given_timestamp(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(
+            created_after=topic_2_in_foo_baz.created_at
+        )
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=expected,
+            expected_list=[topic_2_in_foo_baz, topic_3_in_abc_bar],
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_no_newer_topic(self, sorted_topics):
-        last_topic = sorted_topics[-1]
-        after_dt = last_topic.created_at + 1
-        actual = schema_repo.get_topics_by_criteria(created_after=after_dt)
+    def test_no_newer_topic(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(
+            created_after=topic_3_in_abc_bar.created_at + 1
+        )
         assert actual == []
 
-    def test_filter_topics_by_source(self, topic_foo_bar, topic_abc_bar):
-        actual = schema_repo.get_topics_by_criteria(source=self.source_bar)
+    def test_filter_topics_by_source(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(source='bar')
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[topic_foo_bar, topic_abc_bar],
+            expected_list=[topic_1_in_foo_bar, topic_3_in_abc_bar],
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_filter_topics_by_namespace(self, topic_foo_bar, topic_foo_baz):
-        actual = schema_repo.get_topics_by_criteria(
-            namespace=self.namespace_foo
-        )
+    def test_filter_topics_by_namespace(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(namespace='foo')
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[topic_foo_bar, topic_foo_baz],
+            expected_list=[topic_1_in_foo_bar, topic_2_in_foo_baz],
             assert_func=asserts.assert_equal_topic
         )
 
     def test_filter_topics_by_namespace_and_source(
-        self,
-        sorted_topics,
-        topic_foo_bar
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
     ):
         actual = schema_repo.get_topics_by_criteria(
-            namespace=self.namespace_foo,
-            source=self.source_bar
+            namespace='foo',
+            source='bar'
         )
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[topic_foo_bar],
+            expected_list=[topic_1_in_foo_bar],
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_get_only_one_topic(self, sorted_topics):
+    def test_nonexistent_namespace_or_source(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(namespace='missing')
+        assert actual == []
+
+        actual = schema_repo.get_topics_by_criteria(source='missing')
+        assert actual == []
+
+        actual = schema_repo.get_topics_by_criteria(
+            namespace='foo',
+            source='missing'
+        )
+        assert actual == []
+
+    def test_get_only_one_topic(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
         actual = schema_repo.get_topics_by_criteria(
             page_info=PageInfo(count=1)
         )
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=[sorted_topics[0]],
+            expected_list=[topic_1_in_foo_bar],
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_get_topics_with_id_greater_than_min_id(self, sorted_topics):
-        expected = sorted_topics[1:]
-        min_id = expected[0].id
+    def test_get_topics_with_id_greater_than_min_id(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
         actual = schema_repo.get_topics_by_criteria(
-            page_info=PageInfo(min_id=min_id)
+            page_info=PageInfo(min_id=topic_2_in_foo_baz.id)
         )
         asserts.assert_equal_entity_list(
             actual_list=actual,
-            expected_list=expected,
+            expected_list=[topic_2_in_foo_baz, topic_3_in_abc_bar],
             assert_func=asserts.assert_equal_topic
         )
+
+    def test_min_id_exceeds_topic_max_id(
+        self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
+    ):
+        actual = schema_repo.get_topics_by_criteria(
+            page_info=PageInfo(min_id=topic_3_in_abc_bar.id + 1)
+        )
+        assert actual == []
+
+
+class TestGetSchemasByCriteria(DBTestCase):
+
+    @pytest.fixture
+    def schema_1_in_foo_bar(self):
+        return factories.create_avro_schema(
+            schema_json={"type": "enum", "symbols": ["a"], "name": "enum1"},
+            namespace='foo',
+            source='bar',
+            topic_name='topic_1'
+        )
+
+    @pytest.fixture
+    def schema_2_in_abc_bar(self, schema_1_in_foo_bar):
+        return factories.create_avro_schema(
+            schema_json={"type": "enum", "symbols": ["a"], "name": "enum2"},
+            namespace='abc',
+            source='bar',
+            topic_name='topic_2',
+            created_at=schema_1_in_foo_bar.created_at + 1,
+            updated_at=schema_1_in_foo_bar.updated_at + 1
+        )
+
+    @pytest.fixture
+    def schema_3_in_foo_baz(self, schema_2_in_abc_bar):
+        return factories.create_avro_schema(
+            schema_json={"type": "enum", "symbols": ["a"], "name": "enum3"},
+            namespace='foo',
+            source='baz',
+            topic_name='topic_3',
+            created_at=schema_2_in_abc_bar.created_at + 1,
+            updated_at=schema_2_in_abc_bar.updated_at + 1
+        )
+
+    @pytest.fixture
+    def disabled_schema_4_in_foo_baz(self, schema_3_in_foo_baz):
+        return factories.create_avro_schema(
+            schema_json={"type": "enum", "symbols": ["a"], "name": "enum4"},
+            namespace='foo',
+            source='bar',
+            topic_name='topic_4',
+            status=models.AvroSchemaStatus.DISABLED,
+            created_at=schema_3_in_foo_baz.created_at + 1,
+            updated_at=schema_3_in_foo_baz.updated_at + 1
+        )
+
+    def test_get_schemas_by_namespace_name(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(namespace_name='foo')
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_1_in_foo_bar, schema_3_in_foo_baz],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_by_source_name(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(source_name='bar')
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_1_in_foo_bar, schema_2_in_abc_bar],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_by_namespace_and_source_name(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            namespace_name='foo',
+            source_name='bar'
+        )
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_1_in_foo_bar],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_created_after_given_timestamp(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            created_after=schema_2_in_abc_bar.created_at
+        )
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_2_in_abc_bar, schema_3_in_foo_baz],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_including_disabled_ones(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(include_disabled=True)
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_1_in_foo_bar, schema_2_in_abc_bar,
+                           schema_3_in_foo_baz, disabled_schema_4_in_foo_baz],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_with_id_greater_than_min_id(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            page_info=PageInfo(min_id=schema_2_in_abc_bar.id)
+        )
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_2_in_abc_bar, schema_3_in_foo_baz],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_only_max_number_of_schemas(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            page_info=PageInfo(count=1)
+        )
+        asserts.assert_equal_entity_list(
+            actual_list=actual,
+            expected_list=[schema_1_in_foo_bar],
+            assert_func=asserts.assert_equal_avro_schema
+        )
+
+    def test_get_schemas_with_nonexistant_namespace_or_source(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(namespace_name='dummy')
+        assert actual == []
+
+        actual = schema_repo.get_schemas_by_criteria(
+            namespace_name='foo',
+            source_name="this_source_does_not_exist"
+        )
+        assert actual == []
+
+    def test_get_no_more_newer_schemas(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            created_after=disabled_schema_4_in_foo_baz.created_at + 1
+        )
+        assert actual == []
+
+    def test_min_id_exceeds_schema_max_id(
+        self,
+        schema_1_in_foo_bar,
+        schema_2_in_abc_bar,
+        schema_3_in_foo_baz,
+        disabled_schema_4_in_foo_baz
+    ):
+        actual = schema_repo.get_schemas_by_criteria(
+            page_info=PageInfo(min_id=disabled_schema_4_in_foo_baz.id + 1)
+        )
+        assert actual == []
+
+
+class TestGetLatestTopicBySourceId(DBTestCase):
+
+    @pytest.fixture
+    def source(self):
+        return factories.create_source(namespace_name='foo', source_name='bar')
+
+    @pytest.fixture
+    def topics_in_source(self, source):
+        return [
+            factories.create_topic(
+                topic_name='topic_1',
+                namespace_name=source.namespace.name,
+                source_name=source.name
+            ),
+            factories.create_topic(
+                topic_name='topic_2',
+                namespace_name=source.namespace.name,
+                source_name=source.name
+            ),
+        ]
+
+    def test_get_latest_topic_of_source_id(self, topics_in_source, source):
+        actual = schema_repo.get_latest_topic_of_source_id(source.id)
+        asserts.assert_equal_topic(actual, expected=topics_in_source[-1])
+
+    def test_if_source_has_no_topic(self, source):
+        actual = schema_repo.get_latest_topic_of_source_id(source.id)
+        assert actual is None
+
+    def test_get_latest_topic_with_bad_source_id(self):
+        actual = schema_repo.get_latest_topic_of_source_id(0)
+        assert actual is None
