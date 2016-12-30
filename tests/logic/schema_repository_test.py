@@ -1293,7 +1293,7 @@ class TestGetTopicsByCriteria(DBTestCase):
             assert_func=asserts.assert_equal_topic
         )
 
-    def test_nonexistant_namespace_or_source(
+    def test_nonexistent_namespace_or_source(
         self, topic_1_in_foo_bar, topic_2_in_foo_baz, topic_3_in_abc_bar
     ):
         actual = schema_repo.get_topics_by_criteria(namespace='missing')
