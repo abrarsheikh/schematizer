@@ -20,28 +20,25 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from schematizer.models.source import Topic
+from schematizer_testing import asserts
 from schematizer_testing import factories
-from tests.models.base_model_test import GetAllModelTestBase
+from tests.models.base_model_test import GetModelsBasicTests
 from tests.models.testing_db import DBTestCase
 
 
-class TestGetAllTopics(GetAllModelTestBase):
+class TestGetTopics(GetModelsBasicTests):
 
-    def create_topic(self, topic_no):
-        source_bar = factories.get_or_create_source(
-            namespace_name='foo',
-            source_name='bar',
-            owner_email='test.dev@yelp.com'
-        )
+    entity_cls = Topic
+
+    def create_entity_func(self):
         return factories.create_topic(
-            topic_name='topic_{}'.format(topic_no),
-            namespace_name=source_bar.namespace.name,
-            source_name=source_bar.name
+            topic_name=factories.generate_name('topic'),
+            namespace_name='foo',
+            source_name='bar'
         )
 
-    entity_model = Topic
-    create_entity_func = create_topic
-    assert_func_name = 'assert_equal_topic'
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_topic(actual, expected)
 
 
 class TestTopicModel(DBTestCase):
