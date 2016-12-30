@@ -28,18 +28,17 @@ from tests.models.testing_db import DBTestCase
 
 class TestGetTopics(GetModelsBasicTests):
 
-    def create_topic(self):
+    entity_cls = Topic
+
+    def create_entity_func(self):
         return factories.create_topic(
             topic_name=factories.generate_name('topic'),
             namespace_name='foo',
             source_name='bar'
         )
 
-    entity_cls = Topic
-    create_entity_func = create_topic
-
-    def get_assert_func(self):
-        return asserts.assert_equal_topic
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_topic(actual, expected)
 
 
 class TestTopicModel(DBTestCase):

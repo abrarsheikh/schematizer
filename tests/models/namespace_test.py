@@ -29,14 +29,13 @@ from tests.models.testing_db import DBTestCase
 
 class TestGetNamespaces(GetModelsBasicTests):
 
-    def create_namespace(self):
+    entity_cls = Namespace
+
+    def create_entity_func(self):
         return factories.create_namespace(factories.generate_name('namespace'))
 
-    entity_cls = Namespace
-    create_entity_func = create_namespace
-
-    def get_assert_func(self):
-        return asserts.assert_equal_namespace
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_namespace(actual, expected)
 
 
 class TestGetNamespaceByName(DBTestCase):

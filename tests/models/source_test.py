@@ -24,15 +24,14 @@ from tests.models.base_model_test import GetModelsBasicTests
 
 class TestGetSources(GetModelsBasicTests):
 
-    def create_source(self):
+    entity_cls = Source
+
+    def create_entity_func(self):
         return factories.create_source(
             namespace_name='foo',
             source_name=factories.generate_name('source'),
             owner_email='test.dev@example.com'
         )
 
-    entity_cls = Source
-    create_entity_func = create_source
-
-    def get_assert_func(self):
-        return asserts.assert_equal_source
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_source(actual, expected)

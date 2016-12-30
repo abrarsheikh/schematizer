@@ -30,10 +30,20 @@ from tests.models.testing_db import DBTestCase
 class GetModelsBasicTests(DBTestCase):
 
     entity_cls = None
-    create_entity_func = None
 
-    def get_assert_func(self):
-        raise NotImplementedError()
+    def create_entity_func(self):
+        raise NotImplementedError(
+            "This function must be implemented by the derived test class. It "
+            "is used to create an instance of data model. The function is "
+            "expected to return the instance."
+        )
+
+    def assert_func(self, actual, expected):
+        raise NotImplementedError(
+            "This function must be implemented by the derived test class. It "
+            "is used to compare whether `actual` entity and `expected` entity "
+            "are the same. The function is expected to return a boolean."
+        )
 
     @pytest.fixture
     def entities(self):
@@ -44,7 +54,7 @@ class GetModelsBasicTests(DBTestCase):
         asserts.assert_equal_entity_list(
             actual_list=actual,
             expected_list=entities,
-            assert_func=self.get_assert_func()
+            assert_func=self.assert_func
         )
 
     def test_when_no_entity_exists(self):
@@ -56,7 +66,7 @@ class GetModelsBasicTests(DBTestCase):
         asserts.assert_equal_entity_list(
             actual_list=actual,
             expected_list=entities[0:1],
-            assert_func=self.get_assert_func()
+            assert_func=self.assert_func
         )
 
     def test_filter_by_min_entity_id(self, entities):
@@ -65,7 +75,7 @@ class GetModelsBasicTests(DBTestCase):
         asserts.assert_equal_entity_list(
             actual_list=actual,
             expected_list=entities[1:],
-            assert_func=self.get_assert_func()
+            assert_func=self.assert_func
         )
 
     def test_get_only_one_entity_with_id_greater_than_min_id(self, entities):
@@ -76,13 +86,13 @@ class GetModelsBasicTests(DBTestCase):
         asserts.assert_equal_entity_list(
             actual_list=actual,
             expected_list=entities[1:2],
-            assert_func=self.get_assert_func()
+            assert_func=self.assert_func
         )
 
     def test_get_single_entity_by_id(self):
         entity = self.create_entity_func()
         actual = self.entity_cls.get_by_id(entity.id)
-        self.get_assert_func()(actual, expected=entity)
+        self.assert_func(actual, expected=entity)
 
     def test_get_nonexistent_entity(self):
         with pytest.raises(EntityNotFoundError):

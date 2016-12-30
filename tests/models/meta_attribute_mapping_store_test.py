@@ -68,7 +68,9 @@ class TestGetMetaAttributeMappingByMapping(DBTestCase):
 
 class TestGetMetaAttrMappings(GetModelsBasicTests):
 
-    def create_meta_attr_mapping(self):
+    entity_cls = MetaAttributeMappingStore
+
+    def create_entity_func(self):
         namespace = factories.create_namespace(
             namespace_name=factories.generate_name('namespace')
         )
@@ -81,8 +83,5 @@ class TestGetMetaAttrMappings(GetModelsBasicTests):
             entity_id=namespace.id
         )
 
-    entity_cls = MetaAttributeMappingStore
-    create_entity_func = create_meta_attr_mapping
-
-    def get_assert_func(self):
-        return asserts.assert_equal_meta_attribute_mapping
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_meta_attribute_mapping(actual, expected)

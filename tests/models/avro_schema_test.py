@@ -29,7 +29,9 @@ from tests.models.testing_db import DBTestCase
 
 class TestGetAvroSchemas(GetModelsBasicTests):
 
-    def create_avro_schema(self):
+    entity_cls = AvroSchema
+
+    def create_entity_func(self):
         my_topic = factories.get_or_create_topic(
             topic_name='my_topic',
             namespace_name='foo',
@@ -44,11 +46,8 @@ class TestGetAvroSchemas(GetModelsBasicTests):
             topic_name=my_topic.name
         )
 
-    entity_cls = AvroSchema
-    create_entity_func = create_avro_schema
-
-    def get_assert_func(self):
-        return asserts.assert_equal_avro_schema
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_avro_schema(actual, expected)
 
 
 class TestAvroSchemaModel(DBTestCase):

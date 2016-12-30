@@ -27,7 +27,9 @@ from tests.models.base_model_test import GetModelsBasicTests
 
 class TestGetDataSourceTargetMappings(GetModelsBasicTests):
 
-    def create_source_target_mapping(self):
+    entity_cls = DataSourceTargetMapping
+
+    def create_entity_func(self):
         namespace = factories.create_namespace(
             namespace_name=factories.generate_name('namespace')
         )
@@ -42,8 +44,7 @@ class TestGetDataSourceTargetMappings(GetModelsBasicTests):
             target_id=data_target.id
         )
 
-    entity_cls = DataSourceTargetMapping
-    create_entity_func = create_source_target_mapping
-
-    def get_assert_func(self):
-        return asserts.assert_equal_data_source_target_mapping
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_data_source_target_mapping(
+            actual, expected
+        )

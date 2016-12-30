@@ -24,7 +24,9 @@ from tests.models.base_model_test import GetModelsBasicTests
 
 class TestGetSourceCategories(GetModelsBasicTests):
 
-    def create_source_category(self):
+    entity_cls = SourceCategory
+
+    def create_entity_func(self):
         source_bar = factories.get_or_create_source(
             namespace_name='foo',
             source_name=factories.generate_name("source_bar"),
@@ -35,8 +37,5 @@ class TestGetSourceCategories(GetModelsBasicTests):
             category=factories.generate_name("some_category")
         )
 
-    entity_cls = SourceCategory
-    create_entity_func = create_source_category
-
-    def get_assert_func(self):
-        return asserts.assert_equal_source_category
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_source_category(actual, expected)

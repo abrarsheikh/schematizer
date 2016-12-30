@@ -28,18 +28,17 @@ from tests.models.testing_db import DBTestCase
 
 class TestGetDataTargets(GetModelsBasicTests):
 
-    def create_data_target(self):
+    entity_cls = DataTarget
+
+    def create_entity_func(self):
         return factories.create_data_target(
             name=factories.generate_name('data_target'),
             target_type='my_target_type',
             destination='some_destination'
         )
 
-    entity_cls = DataTarget
-    create_entity_func = create_data_target
-
-    def get_assert_func(self):
-        return asserts.assert_equal_data_target
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_data_target(actual, expected)
 
 
 class TestGetDataTargetByName(DBTestCase):

@@ -24,7 +24,9 @@ from tests.models.base_model_test import GetModelsBasicTests
 
 class TestGetRefreshes(GetModelsBasicTests):
 
-    def create_refresh(self):
+    entity_cls = Refresh
+
+    def create_entity_func(self):
         source_bar = factories.get_or_create_source(
             namespace_name='foo',
             source_name='bar',
@@ -32,8 +34,5 @@ class TestGetRefreshes(GetModelsBasicTests):
         )
         return factories.create_refresh(source_id=source_bar.id)
 
-    entity_cls = Refresh
-    create_entity_func = create_refresh
-
-    def get_assert_func(self):
-        return asserts.assert_equal_refresh
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_refresh(actual, expected)

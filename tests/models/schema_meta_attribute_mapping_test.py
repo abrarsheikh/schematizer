@@ -23,9 +23,11 @@ from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
 
 
-class TestGetSchemaMetaAttrMappings(GetModelsBasicTests):
+class TestGetSchemaMetaAttributeMappings(GetModelsBasicTests):
 
-    def create_meta_attr_mapping(self):
+    entity_cls = SchemaMetaAttributeMapping
+
+    def create_entity_func(self):
         schema = factories.create_avro_schema(
             schema_json={
                 "type": "enum",
@@ -39,8 +41,5 @@ class TestGetSchemaMetaAttrMappings(GetModelsBasicTests):
             meta_attr_id=meta_attr.id
         )
 
-    entity_cls = SchemaMetaAttributeMapping
-    create_entity_func = create_meta_attr_mapping
-
-    def get_assert_func(self):
-        return asserts.assert_equal_schema_meta_attr_mapping
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_schema_meta_attr_mapping(actual, expected)

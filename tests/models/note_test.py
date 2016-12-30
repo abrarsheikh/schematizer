@@ -25,7 +25,9 @@ from tests.models.base_model_test import GetModelsBasicTests
 
 class TestGetNotes(GetModelsBasicTests):
 
-    def create_note(self):
+    entity_cls = Note
+
+    def create_entity_func(self):
         schema = factories.create_avro_schema(
             schema_json={
                 "type": "fixed",
@@ -40,8 +42,5 @@ class TestGetNotes(GetModelsBasicTests):
             last_updated_by="test@example.com"
         )
 
-    entity_cls = Note
-    create_entity_func = create_note
-
-    def get_assert_func(self):
-        return asserts.assert_equal_note
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_note(actual, expected)

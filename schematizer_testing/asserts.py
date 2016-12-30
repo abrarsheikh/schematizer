@@ -19,6 +19,11 @@ This module contains the helper functions for testing assertions.
 The equality assertion functions are used instead of overriding the __eq__
 function of each data model because the data model may be mutable. Also it may
 be easier to see which one fails when asserting each value separately.
+
+Note that the equality assertion function doesn't necessarily need to be added
+in this module. If only one test module or test class uses it, it is preferred
+to define such equality assertion function close to where it is used. If it is
+used in multiple test modules, it is better to put the function here.
 """
 from __future__ import absolute_import
 from __future__ import unicode_literals
