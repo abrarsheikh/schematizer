@@ -16,10 +16,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from sqlalchemy.orm import exc as orm_exc
-
 from schematizer import models
-from schematizer.logic import exceptions as sch_exc
 from schematizer.models.database import session
 
 
@@ -38,13 +35,7 @@ def get_element_chains_by_schema_id(schema_id):
     reversely: the list starts with the most recent schema element, i.e. the
     element of given schema.
     """
-    try:
-        avro_schema = models.AvroSchema.get_by_id(schema_id)
-    except orm_exc.NoResultFound:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find Avro schema id {0}.".format(schema_id)
-        )
-
+    avro_schema = models.AvroSchema.get_by_id(schema_id)
     identity_to_element_chain_map = _initialize_schema_element_chains(
         avro_schema.avro_schema_elements
     )

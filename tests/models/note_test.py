@@ -16,22 +16,31 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from schematizer.models.source import Source
+from schematizer.models.note import Note
+from schematizer.models.note import ReferenceTypeEnum
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
 
 
-class TestGetSources(GetModelsBasicTests):
+class TestGetNotes(GetModelsBasicTests):
 
-    entity_cls = Source
+    entity_cls = Note
 
     def create_entity_func(self):
-        return factories.create_source(
-            namespace_name='foo',
-            source_name=factories.generate_name('source'),
-            owner_email='test.dev@example.com'
+        schema = factories.create_avro_schema(
+            schema_json={
+                "type": "fixed",
+                "size": 16,
+                "name": factories.generate_name("fixed_type")
+            }
+        )
+        return factories.create_note(
+            ReferenceTypeEnum.SCHEMA,
+            reference_id=schema.id,
+            note_text=factories.generate_name("some notes"),
+            last_updated_by="test@example.com"
         )
 
     def assert_func(self, actual, expected):
-        return asserts.assert_equal_source(actual, expected)
+        return asserts.assert_equal_note(actual, expected)

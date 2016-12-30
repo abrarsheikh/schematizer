@@ -16,22 +16,35 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from schematizer.models.source import Source
+from schematizer.models.data_source_target_mapping import (
+    DataSourceTargetMapping
+)
+from schematizer.models.namespace import Namespace
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
 
 
-class TestGetSources(GetModelsBasicTests):
+class TestGetDataSourceTargetMappings(GetModelsBasicTests):
 
-    entity_cls = Source
+    entity_cls = DataSourceTargetMapping
 
     def create_entity_func(self):
-        return factories.create_source(
-            namespace_name='foo',
-            source_name=factories.generate_name('source'),
-            owner_email='test.dev@example.com'
+        namespace = factories.create_namespace(
+            namespace_name=factories.generate_name('namespace')
+        )
+        data_target = factories.get_or_create_data_target(
+            name='example_data_target',
+            target_type='redshift',
+            destination='some redshift cluster'
+        )
+        return factories.create_data_source_target_mapping(
+            source_type=Namespace.__name__,
+            source_id=namespace.id,
+            target_id=data_target.id
         )
 
     def assert_func(self, actual, expected):
-        return asserts.assert_equal_source(actual, expected)
+        return asserts.assert_equal_data_source_target_mapping(
+            actual, expected
+        )

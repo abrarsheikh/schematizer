@@ -21,51 +21,33 @@ import simplejson
 
 from schematizer import models
 from schematizer.models.avro_schema import AvroSchema
-from schematizer.models.exceptions import EntityNotFoundError
 from schematizer_testing import asserts
 from schematizer_testing import factories
-from tests.models.base_model_test import GetAllModelTestBase
+from tests.models.base_model_test import GetModelsBasicTests
 from tests.models.testing_db import DBTestCase
 
 
-class TestGetAllAvroSchemas(GetAllModelTestBase):
+class TestGetAvroSchemas(GetModelsBasicTests):
 
-    def create_avro_schema(self, avro_schema_no):
+    entity_cls = AvroSchema
+
+    def create_entity_func(self):
         my_topic = factories.get_or_create_topic(
             topic_name='my_topic',
             namespace_name='foo',
             source_name='bar'
         )
-        type_name = "fixed_type_{}".format(avro_schema_no)
         return factories.create_avro_schema(
             schema_json={
                 "type": "fixed",
                 "size": 16,
-                "name": type_name
+                "name": factories.generate_name("fixed_type_{}")
             },
             topic_name=my_topic.name
         )
 
-    entity_model = AvroSchema
-    create_entity_func = create_avro_schema
-    assert_func_name = 'assert_equal_avro_schema'
-
-
-class TestGetAvroSchemaById(DBTestCase):
-
-    @pytest.fixture
-    def example_schema(self):
-        return factories.create_avro_schema(
-            schema_json={'type': 'array', 'items': 'int', 'doc': 'foo'}
-        )
-
-    def test_happy_case(self, example_schema):
-        actual = AvroSchema.get_by_id(example_schema.id)
-        asserts.assert_equal_avro_schema(actual, expected=example_schema)
-
-    def test_non_existing_avro_schema(self):
-        with pytest.raises(EntityNotFoundError):
-            AvroSchema.get_by_id(obj_id=0)
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_avro_schema(actual, expected)
 
 
 class TestAvroSchemaModel(DBTestCase):
