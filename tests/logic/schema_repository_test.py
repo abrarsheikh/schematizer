@@ -812,16 +812,32 @@ class TestRegisterSchema(DBTestCase):
             "pkey": ["id"]
         }
 
-    @pytest.fixture(params=[None, 'simple_schema_alias'])
-    def alias(self, request):
-        return request.param
+    def test_register_new_schema_json(self):
+        actual = self._register_avro_schema(self.avro_schema_json)
+        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
+        asserts.assert_equal_avro_schema(actual, expected)
 
-    def test_register_new_avro_schema_json(self, alias):
-        actual = self._register_avro_schema(self.avro_schema_json, alias=alias)
+    def test_register_new_schema_json_with_alias(self):
+        actual = self._register_avro_schema(
+            self.avro_schema_json,
+            alias='simple_schema_alias'
+        )
         expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
         asserts.assert_equal_avro_schema(actual, expected)
 
     def test_register_same_schema_twice(self, alias):
+        schema_one = self._register_avro_schema(
+            self.avro_schema_json,
+            alias=alias
+        )
+        schema_two = self._register_avro_schema(
+            self.avro_schema_json,
+            alias=alias
+        )
+        asserts.assert_equal_avro_schema(schema_one, schema_two)
+
+    def test_register_same_schema_with_alias_twice(self):
+        alias = 'simple_schema_alias'
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
             alias=alias
