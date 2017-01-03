@@ -54,6 +54,10 @@ class Topic(Base, BaseModel):
 
     avro_schemas = relationship(AvroSchema, backref="topic")
 
+    # Since mysql doesn't have boolean type, sqlalchemy converts the boolean
+    # value to integer 0/1 when storing into the db.
+    # (http://docs.sqlalchemy.org/en/latest/core/type_basics.html#
+    # sqlalchemy.types.Boolean)
     contains_pii = Column(Boolean, nullable=False)
 
     cluster_type = Column(String, nullable=False)
