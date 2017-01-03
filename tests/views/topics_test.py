@@ -32,7 +32,7 @@ class TestGetTopicByTopicName(ApiTestBase):
             topic_views.get_topic_by_topic_name(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exc_v1.TOPIC_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'Topic name `foo` not found.'
 
     def test_happy_case(self, mock_request, biz_topic):
         mock_request.matchdict = {'topic_name': biz_topic.name}
@@ -56,7 +56,7 @@ class TestListSchemasByTopicName(ApiTestBase):
             topic_views.list_schemas_by_topic_name(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exc_v1.TOPIC_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'Topic name `foo` not found.'
 
     def test_non_existing_schemas(self, mock_request, biz_topic):
         mock_request.matchdict = {'topic_name': biz_topic.name}
@@ -79,7 +79,7 @@ class TestGetLatestSchemaByTopicName(ApiTestBase):
             topic_views.get_latest_schema_by_topic_name(mock_request)
 
         assert e.value.code == expected_exception.code
-        assert str(e.value) == exc_v1.TOPIC_NOT_FOUND_ERROR_MESSAGE
+        assert str(e.value) == 'Topic name `ba` not found.'
 
     def test_no_latest_schema(self, mock_request, biz_topic):
         expected_exception = self.get_http_exception(404)

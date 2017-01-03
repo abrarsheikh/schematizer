@@ -19,31 +19,36 @@ This module contains the helper functions for testing assertions.
 The equality assertion functions are used instead of overriding the __eq__
 function of each data model because the data model may be mutable. Also it may
 be easier to see which one fails when asserting each value separately.
+
+Add the equality assertion function in this module if it is used in multiple
+test modules. If only one test module or test class uses it, it is preferred
+to define the function close to where it is used.
 """
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from schematizer import models
+
 
 def assert_equal_namespace(actual, expected):
-    attrs = ('id', 'name', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.Namespace)
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def assert_equal_source(actual, expected):
-    attrs = ('id', 'name', 'owner_email', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.Source)
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_namespace(actual.namespace, expected.namespace)
 
 
 def assert_equal_topic(actual, expected):
-    attrs = ('id', 'name', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.Topic)
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_source(actual.source, expected.source)
 
 
 def assert_equal_avro_schema(actual, expected):
-    attrs = ('id', 'avro_schema', 'base_schema_id', 'status',
-             'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.AvroSchema)
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_topic(actual.topic, expected.topic)
     assert_equal_entity_list(
@@ -54,38 +59,54 @@ def assert_equal_avro_schema(actual, expected):
 
 
 def assert_equal_avro_schema_element(actual, expected):
-    attrs = ('id', 'avro_schema_id', 'key', 'element_type', 'doc',
-             'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.AvroSchemaElement)
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def assert_equal_refresh(actual, expected):
-    attrs = ('id', 'source_id', 'status', 'offset', 'batch_size', 'priority',
-             'filter_condition', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.Refresh)
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def assert_equal_data_target(actual, expected):
-    attrs = ('id', 'target_type', 'destination', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.DataTarget)
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
+def assert_equal_data_source_target_mapping(actual, expected):
+    attrs = _get_model_column_names(models.DataSourceTargetMapping)
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
 def assert_equal_consumer_group(actual, expected):
-    attrs = ('id', 'group_name', 'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.ConsumerGroup)
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_data_target(actual.data_target, expected.data_target)
 
 
 def assert_equal_consumer_group_data_source(actual, expected):
-    attrs = ('id', 'data_source_type', 'data_source_id',
-             'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.ConsumerGroupDataSource)
     _assert_equal_multi_attrs(actual, expected, *attrs)
     assert_equal_consumer_group(actual.consumer_group, expected.consumer_group)
 
 
+def assert_equal_source_category(actual, expected):
+    attrs = _get_model_column_names(models.SourceCategory)
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
 def assert_equal_note(actual, expected):
-    attrs = ('id', 'reference_type', 'reference_id', 'note', 'last_updated_by',
-             'created_at', 'updated_at')
+    attrs = _get_model_column_names(models.Note)
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
+def assert_equal_meta_attribute_mapping(actual, expected):
+    attrs = _get_model_column_names(models.MetaAttributeMappingStore)
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
+def assert_equal_schema_meta_attr_mapping(actual, expected):
+    attrs = _get_model_column_names(models.SchemaMetaAttributeMapping)
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
@@ -98,7 +119,7 @@ def assert_equal_entity_list(actual_list, expected_list, assert_func):
 def assert_equal_entity_set(actual_set, expected_set, assert_func, id_attr):
     actual_id_to_obj_map = {getattr(o, id_attr): o for o in actual_set}
 
-    for actual_id, actual in actual_id_to_obj_map.iteritems():
+    for actual_id, actual in actual_id_to_obj_map.items():
         expected = next(
             o for o in expected_set if actual_id == getattr(o, id_attr)
         )
@@ -112,10 +133,8 @@ def assert_equal_entity_set(actual_set, expected_set, assert_func, id_attr):
         assert expected_id in actual_id_to_obj_map, err_msg.format(expected_id)
 
 
-def assert_equal_meta_attribute_mapping(actual, expected):
-    attrs = ('id', 'entity_type', 'entity_id', 'meta_attr_schema_id',
-             'created_at', 'updated_at')
-    _assert_equal_multi_attrs(actual, expected, *attrs)
+def _get_model_column_names(model_cls):
+    return (o.name for o in model_cls.__table__.columns)
 
 
 def _assert_equal_multi_attrs(expected_entity, actual_entity, *attrs):

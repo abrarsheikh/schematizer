@@ -20,9 +20,14 @@ import pytest
 
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.meta_attribute_mapping_store import (
-    MetaAttributeMappingStore)
+    MetaAttributeEntity
+)
+from schematizer.models.meta_attribute_mapping_store import (
+    MetaAttributeMappingStore
+)
 from schematizer_testing import asserts
 from schematizer_testing import factories
+from tests.models.base_model_test import GetModelsBasicTests
 from tests.models.testing_db import DBTestCase
 
 
@@ -59,3 +64,24 @@ class TestGetMetaAttributeMappingByMapping(DBTestCase):
                 meta_attr_mapping_bar.entity_id,
                 fake_meta_attr_schema_id
             )
+
+
+class TestGetMetaAttrMappings(GetModelsBasicTests):
+
+    entity_cls = MetaAttributeMappingStore
+
+    def create_entity_func(self):
+        namespace = factories.create_namespace(
+            namespace_name=factories.generate_name('namespace')
+        )
+        schema = factories.create_avro_schema(
+            schema_json={"type": "array", "items": "int"}
+        )
+        return factories.create_meta_attribute_mapping(
+            meta_attr_schema_id=schema.id,
+            entity_type=MetaAttributeEntity.NAMESPACE,
+            entity_id=namespace.id
+        )
+
+    def assert_func(self, actual, expected):
+        return asserts.assert_equal_meta_attribute_mapping(actual, expected)

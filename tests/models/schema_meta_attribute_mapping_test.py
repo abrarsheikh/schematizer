@@ -16,22 +16,30 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from schematizer.models.source import Source
+from schematizer.models.schema_meta_attribute_mapping \
+    import SchemaMetaAttributeMapping
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
 
 
-class TestGetSources(GetModelsBasicTests):
+class TestGetSchemaMetaAttributeMappings(GetModelsBasicTests):
 
-    entity_cls = Source
+    entity_cls = SchemaMetaAttributeMapping
 
     def create_entity_func(self):
-        return factories.create_source(
-            namespace_name='foo',
-            source_name=factories.generate_name('source'),
-            owner_email='test.dev@example.com'
+        schema = factories.create_avro_schema(
+            schema_json={
+                "type": "enum",
+                "name": factories.generate_name("some_enum"),
+                "symbols": ["a"]
+            }
+        )
+        meta_attr = factories.create_avro_schema(schema_json={"type": "int"})
+        return factories.create_schema_meta_attr_mapping(
+            schema_id=schema.id,
+            meta_attr_id=meta_attr.id
         )
 
     def assert_func(self, actual, expected):
-        return asserts.assert_equal_source(actual, expected)
+        return asserts.assert_equal_schema_meta_attr_mapping(actual, expected)

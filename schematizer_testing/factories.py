@@ -20,6 +20,9 @@ import uuid
 
 from schematizer import models
 from schematizer.models.avro_schema import AvroSchema
+from schematizer.models.data_source_target_mapping import (
+    DataSourceTargetMapping
+)
 from schematizer.models.data_target import DataTarget
 from schematizer.models.database import session
 from schematizer.models.meta_attribute_mapping_store import (
@@ -29,6 +32,9 @@ from schematizer.models.namespace import Namespace
 from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
 from schematizer.models.refresh import RefreshStatus
+from schematizer.models.schema_meta_attribute_mapping import (
+    SchemaMetaAttributeMapping
+)
 from schematizer.models.source import Source
 from schematizer.models.topic import Topic
 
@@ -57,7 +63,7 @@ def create_source(namespace_name, source_name, owner_email=None):
         entity=Source(
             namespace_id=namespace.id,
             name=source_name,
-            owner_email=owner_email or 'src@test.com'
+            owner_email=owner_email or 'test@example.com'
         )
     )
 
@@ -96,21 +102,19 @@ def create_avro_schema(
     topic_name='default_topic_name',
     namespace='default_namespace',
     source="default_source",
-    status=models.AvroSchemaStatus.READ_AND_WRITE,
-    base_schema_id=None,
-    created_at=None
+    **overrides
 ):
     topic = get_or_create_topic(topic_name, namespace, source)
 
-    avro_schema = AvroSchema(
-        avro_schema_json=schema_json,
-        topic_id=topic.id,
-        status=status,
-        base_schema_id=base_schema_id,
-        created_at=created_at
-    )
-    session.add(avro_schema)
-    session.flush()
+    params = {
+        'avro_schema_json': schema_json,
+        'topic_id': topic.id,
+        'status': models.AvroSchemaStatus.READ_AND_WRITE,
+        'base_schema_id': None
+    }
+    if overrides:
+        params.update(overrides)
+    avro_schema = _create_entity(session, AvroSchema(**params))
 
     schema_elements = (
         schema_elements or
@@ -165,6 +169,22 @@ def create_data_target(name, target_type, destination):
     )
 
 
+def get_or_create_data_target(name, target_type, destination):
+    entity = session.query(DataTarget).filter(DataTarget.name == name).first()
+    return entity or create_data_target(name, target_type, destination)
+
+
+def create_data_source_target_mapping(source_type, source_id, target_id):
+    return _create_entity(
+        session,
+        DataSourceTargetMapping(
+            data_source_type=source_type,
+            data_source_id=source_id,
+            data_target_id=target_id
+        )
+    )
+
+
 def create_consumer_group(group_name, data_target):
     return _create_entity(
         session,
@@ -201,6 +221,16 @@ def create_meta_attribute_mapping(
             entity_type=entity_type,
             entity_id=entity_id,
             meta_attr_schema_id=meta_attr_schema_id
+        )
+    )
+
+
+def create_schema_meta_attr_mapping(schema_id, meta_attr_id):
+    return _create_entity(
+        session,
+        SchemaMetaAttributeMapping(
+            schema_id=schema_id,
+            meta_attr_schema_id=meta_attr_id
         )
     )
 

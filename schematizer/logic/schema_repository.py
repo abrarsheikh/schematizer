@@ -26,10 +26,10 @@ from sqlalchemy.orm import exc as orm_exc
 
 from schematizer import models
 from schematizer.config import log
-from schematizer.logic import exceptions as sch_exc
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
 from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_meta_attribute_mapping import (
     SchemaMetaAttributeMapping
 )
@@ -539,25 +539,16 @@ def _lock_topic_and_schemas(topic_id):
 def get_latest_topic_of_namespace_source(namespace_name, source_name):
     source = get_source_by_fullname(namespace_name, source_name)
     if not source:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find namespace {0} source {1}.".format(
+        raise EntityNotFoundError(
+            entity_cls=models.Source,
+            entity_desc='namespace {} source {}'.format(
                 namespace_name,
                 source_name
             )
         )
-    return session.query(
-        models.Topic
-    ).join(
-        models.Source,
-        models.Namespace
-    ).filter(
-        models.Namespace.id == models.Source.namespace_id,
-        models.Source.id == models.Topic.source_id,
-        models.Namespace.name == namespace_name,
-        models.Source.name == source_name
-    ).order_by(
-        models.Topic.id.desc()
-    ).first()
+    return session.query(models.Topic).filter(
+        models.Topic.source_id == source.id
+    ).order_by(models.Topic.id.desc()).first()
 
 
 def is_schema_compatible_in_topic(target_schema, topic):
@@ -677,8 +668,9 @@ def get_latest_schema_by_topic_name(topic_name):
     """
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            "Cannot find topic {0}.".format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     return session.query(
@@ -706,8 +698,9 @@ def is_schema_compatible(target_schema, namespace, source):
 def get_schemas_by_topic_name(topic_name, include_disabled=False):
     topic = get_topic_by_name(topic_name)
     if not topic:
-        raise sch_exc.EntityNotFoundException(
-            'Cannot find topic {0}.'.format(topic_name)
+        raise EntityNotFoundError(
+            entity_cls=models.Topic,
+            entity_desc='Topic name `{}`'.format(topic_name)
         )
 
     qry = session.query(
@@ -736,29 +729,6 @@ def get_schemas_by_topic_id(topic_id, include_disabled=False):
             models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
         )
     return qry.order_by(models.AvroSchema.id).all()
-
-
-def mark_schema_disabled(schema_id):
-    """Disable the Avro schema of specified id.
-    """
-    _update_schema_status(schema_id, models.AvroSchemaStatus.DISABLED)
-
-
-def mark_schema_readonly(schema_id):
-    """Mark the Avro schema of specified id as read-only.
-    """
-    _update_schema_status(schema_id, models.AvroSchemaStatus.READ_ONLY)
-
-
-def _update_schema_status(schema_id, status):
-    session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.id == schema_id
-    ).update(
-        {'status': status}
-    )
-    session.flush()
 
 
 def get_topics_by_source_id(source_id):
