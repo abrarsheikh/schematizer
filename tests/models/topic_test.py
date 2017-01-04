@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
-from schematizer.models.source import Topic
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer.models.topic import Topic
 from schematizer_testing import asserts
 from schematizer_testing import factories
 from tests.models.base_model_test import GetModelsBasicTests
@@ -41,23 +41,20 @@ class TestGetTopics(GetModelsBasicTests):
         return asserts.assert_equal_topic(actual, expected)
 
 
-class TestTopicModel(DBTestCase):
+class TestGetTopicByName(DBTestCase):
 
-    def test_valid_cluster_type(self, biz_source):
-        cluster_type = 'scribe'
-        topic = factories.create_topic(
-            topic_name='yelp.biz_test.1',
-            namespace_name=biz_source.namespace.name,
-            source_name=biz_source.name,
-            cluster_type=cluster_type
+    @pytest.fixture
+    def topic_one(self):
+        return factories.create_topic(
+            topic_name='topic_one',
+            namespace_name='foo',
+            source_name='bar'
         )
-        assert topic.cluster_type == cluster_type
 
-    def test_empty_cluster_type(self, biz_source):
-        with pytest.raises(IntegrityError):
-            factories.create_topic(
-                topic_name='yelp.biz_test.1',
-                namespace_name=biz_source.namespace.name,
-                source_name=biz_source.name,
-                cluster_type=None
-            )
+    def test_happy_case(self, topic_one):
+        actual = Topic.get_by_name(topic_one.name)
+        asserts.assert_equal_topic(actual, expected=topic_one)
+
+    def test_nonexistent_topic(self):
+        with pytest.raises(EntityNotFoundError):
+            Topic.get_by_name(name='bad topic')

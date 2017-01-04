@@ -220,7 +220,7 @@ def _get_source_id_and_topic_candidates(
     query = session.query(models.Topic).join(models.AvroSchema).filter(
         models.Topic.source_id == source.id,
         models.Topic.cluster_type == cluster_type,
-        models.Topic._contains_pii == int(contains_pii),
+        models.Topic.contains_pii == contains_pii,
         models.AvroSchema.base_schema_id == base_schema_id,
         models.Topic.id == models.AvroSchema.topic_id,
         models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
@@ -507,17 +507,6 @@ def _is_pkey_identical(new_schema_json, topic_name):
     return old_pkey_set == new_pkey_set
 
 
-def get_topic_by_name(topic_name):
-    """Get topic of specified topic name. It returns None if the specified
-    topic is not found.
-    """
-    return session.query(
-        models.Topic
-    ).filter(
-        models.Topic.name == topic_name
-    ).first()
-
-
 def get_namespace_by_name(namespace):
     return session.query(
         models.Namespace
@@ -584,13 +573,7 @@ def get_latest_schema_by_topic_name(topic_name):
     """Get the latest enabled (Read-Write or Read-Only) schema of given topic.
     It returns None if no such schema can be found.
     """
-    topic = get_topic_by_name(topic_name)
-    if not topic:
-        raise EntityNotFoundError(
-            entity_cls=models.Topic,
-            entity_desc='Topic name `{}`'.format(topic_name)
-        )
-
+    topic = models.Topic.get_by_name(topic_name)
     return session.query(
         models.AvroSchema
     ).filter(
@@ -614,16 +597,8 @@ def is_schema_compatible(target_schema, namespace, source):
 
 
 def get_schemas_by_topic_name(topic_name, include_disabled=False):
-    topic = get_topic_by_name(topic_name)
-    if not topic:
-        raise EntityNotFoundError(
-            entity_cls=models.Topic,
-            entity_desc='Topic name `{}`'.format(topic_name)
-        )
-
-    qry = session.query(
-        models.AvroSchema
-    ).filter(
+    topic = models.Topic.get_by_name(topic_name)
+    qry = session.query(models.AvroSchema).filter(
         models.AvroSchema.topic_id == topic.id
     )
     if not include_disabled:

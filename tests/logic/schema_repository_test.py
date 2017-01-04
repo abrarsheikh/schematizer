@@ -287,12 +287,12 @@ class TestSchemaRepository(DBTestCase):
         with pytest.raises(EntityNotFoundError):
             schema_repo.get_latest_topic_of_namespace_source('foo', 'bar')
 
-    def test_get_topic_by_name(self, topic):
-        actual = schema_repo.get_topic_by_name(topic.name)
-        asserts.assert_equal_topic(topic, actual)
+    def test_get_latest_topic_of_source_id_with_no_topic(self, source):
+        actual = schema_repo.get_latest_topic_of_source_id(source.id)
+        assert actual is None
 
-    def test_get_topic_by_name_with_nonexistent_topic(self):
-        actual = schema_repo.get_topic_by_name('foo')
+    def test_get_latest_topic_of_source_id_with_nonexistent_source(self):
+        actual = schema_repo.get_latest_topic_of_source_id(0)
         assert actual is None
 
     def test_get_source_by_fullname(self, source):

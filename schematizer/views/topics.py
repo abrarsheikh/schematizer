@@ -18,13 +18,13 @@ from __future__ import unicode_literals
 
 from pyramid.view import view_config
 
+from schematizer import models
 from schematizer.api.decorators import transform_api_response
 from schematizer.api.exceptions import exceptions_v1
 from schematizer.api.requests import requests_v1
 from schematizer.api.responses import responses_v1
 from schematizer.logic import schema_repository
 from schematizer.models.exceptions import EntityNotFoundError
-from schematizer.models.topic import Topic
 
 
 @view_config(
@@ -35,12 +35,9 @@ from schematizer.models.topic import Topic
 @transform_api_response()
 def get_topic_by_topic_name(request):
     topic_name = request.matchdict.get('topic_name')
-    topic = schema_repository.get_topic_by_name(topic_name)
-    if topic is None:
-        e = EntityNotFoundError(
-            entity_cls=Topic,
-            entity_desc='Topic name `{}`'.format(topic_name)
-        )
+    try:
+        topic = models.Topic.get_by_name(topic_name)
+    except EntityNotFoundError as e:
         raise exceptions_v1.entity_not_found_exception(e.message)
     return responses_v1.get_topic_response_from_topic(topic)
 
