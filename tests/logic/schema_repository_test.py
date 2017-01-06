@@ -529,7 +529,7 @@ class TestRegisterSchema(DBTestCase):
         schema_two = self._register_avro_schema(self.avro_schema_json)
         asserts.assert_equal_avro_schema(schema_one, schema_two)
 
-    def test_register_already_existed_schema(self):
+    def test_register_already_existing_schema(self):
         schema_one = self._register_avro_schema(self.avro_schema_json)
 
         schema_two_json = dict(self.avro_schema_json)
@@ -543,7 +543,7 @@ class TestRegisterSchema(DBTestCase):
         schema_three = self._register_avro_schema(self.avro_schema_json)
         asserts.assert_equal_avro_schema(schema_three, schema_one)
 
-    def test_register_already_existed_but_disabled_schema(self):
+    def test_register_already_existing_but_disabled_schema(self):
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
             status=models.AvroSchemaStatus.DISABLED
