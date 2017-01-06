@@ -155,7 +155,7 @@ def register_avro_schema_from_avro_json(
                             the_schema.topic.contains_pii == contains_pii):
                         return the_schema
                     raise ValueError(
-                        "ALIAS `{}` has already been taken.".format(alias)
+                        "alias `{}` has already been taken.".format(alias)
                     )
             source_id, topic_candidates = _get_source_id_and_topic_candidates(
                 namespace_name,
@@ -198,7 +198,7 @@ def register_avro_schema_from_avro_json(
                     the_schema.topic.contains_pii == contains_pii):
                 return the_schema
             raise ValueError(
-                "ALIAS `{}` has already been taken.".format(alias)
+                "alias `{}` has already been taken.".format(alias)
             )
 
     # If the connection is switched to read-only one above, it still needs to
@@ -339,7 +339,7 @@ def _get_schema_if_exists(
 
 
 def _is_same_schema(
-        existing_schema, new_schema_json, meta_attr_mappings, alias
+    existing_schema, new_schema_json, meta_attr_mappings, alias
 ):
     if not existing_schema:
         return False
@@ -352,13 +352,13 @@ def _is_same_schema(
         SchemaMetaAttributeMapping.schema_id == existing_schema.id
     ).all()
 
-    if meta_attr_mappings == {o[0] for o in schema_meta_attrs}:
-        if existing_schema.alias != alias:
-            raise ValueError(
-                "Same schema with a different ALIAS already exists."
-            )
-        return True
-    return False
+    if meta_attr_mappings != {o[0] for o in schema_meta_attrs}:
+        return False
+    if existing_schema.alias != alias:
+        raise ValueError(
+            "Same schema with a different alias already exists."
+        )
+    return True
 
 
 def _are_meta_attr_mappings_same(schema_id, source_id):

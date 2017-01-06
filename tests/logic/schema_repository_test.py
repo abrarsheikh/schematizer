@@ -614,7 +614,7 @@ class TestRegisterSchema(DBTestCase):
                 alias=alias
             )
         assert err.value.message == (
-            "ALIAS `{}` has already been taken.".format(alias)
+            "alias `{}` has already been taken.".format(alias)
         )
 
     def test_register_schema_with_different_pii(self):
@@ -645,7 +645,7 @@ class TestRegisterSchema(DBTestCase):
                 alias=alias
             )
         assert err.value.message == (
-            "ALIAS `{}` has already been taken.".format(alias)
+            "alias `{}` has already been taken.".format(alias)
         )
 
     def test_register_same_schema_with_different_aliases(self):
@@ -659,7 +659,7 @@ class TestRegisterSchema(DBTestCase):
                 alias="alias_two"
             )
         assert err.value.message == (
-            "Same schema with a different ALIAS already exists."
+            "Same schema with a different alias already exists."
         )
 
     def test_register_schema_with_pkey_added(self):
@@ -728,15 +728,15 @@ class TestRegisterSchema(DBTestCase):
             )
 
     def test_register_same_schema_with_same_base_schema(self):
-        result_a1 = self._register_avro_schema(
+        schema_1 = self._register_avro_schema(
             self.avro_schema_json,
             base_schema_id=10
         )
-        result_a2 = self._register_avro_schema(
+        schema_2 = self._register_avro_schema(
             self.avro_schema_json,
             base_schema_id=10
         )
-        asserts.assert_equal_avro_schema(result_a1, result_a2)
+        asserts.assert_equal_avro_schema(schema_1, schema_2)
 
     def test_register_same_schema_with_same_base_schema_and_alias(self):
         alias = 'simple_schema_alias'
