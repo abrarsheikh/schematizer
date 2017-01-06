@@ -288,8 +288,6 @@ def _is_same_schema(
     new_schema_json,
     meta_attr_mappings
 ):
-    # if not existing_schema:
-    #     return False
     if existing_schema_json != new_schema_json:
         return False
 
