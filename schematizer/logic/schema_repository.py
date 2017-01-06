@@ -213,6 +213,7 @@ def _get_source_id_and_topic_candidates(
     contains_pii,
     cluster_type
 ):
+    # This currently will exclude the topics that only have disabled schemas.
     source = get_source_by_fullname(namespace_name, source_name)
     if not source:
         return None, []
@@ -242,41 +243,60 @@ def _get_schema_if_exists(
         o for o in meta_attr_repo.get_meta_attributes_by_source(source_id)
     }
 
-    # TODO: change to check all the schemas of topic candidates instead of
-    # latest one.
+    db_type = "Master" if lock else "Slave"
     for topic in topic_candidates:
         if lock:
             _lock_topic_and_schemas(topic.id)
-        latest_schema = get_latest_schema_by_topic_id(topic.id)
-        is_same_schema = _is_same_schema(
-            latest_schema, new_schema_json, meta_attr_mappings
-        )
-        log.info(
-            '[{}] Registering schema {} on source id {}. '
-            'Checking same schema with latest {} on topic {}: {}'.format(
-                "Master" if lock else "Slave",
-                new_schema_json,
-                source_id,
-                latest_schema.id if latest_schema else 'None',
-                topic.name,
-                is_same_schema
+        avro_schemas = _get_schemas_only_by_topic_id(topic.id)
+        log.info('[{}] Checking {} schemas in topic {} for {}.'.format(
+            db_type, len(avro_schemas), topic.name, new_schema_json
+        ))
+        for (schema_id, avro_schema) in avro_schemas:
+            is_same_schema = _is_same_schema(
+                schema_id, avro_schema, new_schema_json, meta_attr_mappings
             )
-        )
-        if is_same_schema:
-            return latest_schema
+            if is_same_schema:
+                log.info(
+                    '[{}] Found existing schema {} in topic {} for {}.'.format(
+                        db_type, schema_id, topic.name, new_schema_json
+                    )
+                )
+                return models.AvroSchema.get_by_id(schema_id)
+
+    log.info('[{}] Cannot find existing schema in source {} for {}.'.format(
+        db_type, source_id, new_schema_json
+    ))
     return None
 
 
-def _is_same_schema(existing_schema, new_schema_json, meta_attr_mappings):
-    if not existing_schema:
-        return False
-    if existing_schema.avro_schema_json != new_schema_json:
+def _get_schemas_only_by_topic_id(topic_id):
+    """Get id and avro schema of all the active schemas in the given topic.
+    """
+    results = session.query(
+        models.AvroSchema.id,
+        models.AvroSchema.avro_schema
+    ).filter(
+        models.AvroSchema.topic_id == topic_id,
+        models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
+    ).order_by(models.AvroSchema.id.desc()).all()
+    return [(result[0], simplejson.loads(result[1])) for result in results]
+
+
+def _is_same_schema(
+    existing_schema_id,
+    existing_schema_json,
+    new_schema_json,
+    meta_attr_mappings
+):
+    # if not existing_schema:
+    #     return False
+    if existing_schema_json != new_schema_json:
         return False
 
     schema_meta_attrs = session.query(
         SchemaMetaAttributeMapping.meta_attr_schema_id
     ).filter(
-        SchemaMetaAttributeMapping.schema_id == existing_schema.id
+        SchemaMetaAttributeMapping.schema_id == existing_schema_id
     ).all()
     return meta_attr_mappings == {o[0] for o in schema_meta_attrs}
 
