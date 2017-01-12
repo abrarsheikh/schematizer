@@ -125,6 +125,10 @@ class RedshiftString(SQLColumnDataType):
         super(RedshiftString, self).__init__()
         self.length = length
 
+    def __eq__(self, other):
+        return (super(RedshiftString, self).__eq__(other)
+                and self.length == other.length)
+
 
 class RedshiftChar(RedshiftString):
 

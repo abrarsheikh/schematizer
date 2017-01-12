@@ -291,14 +291,152 @@ class TestAvroToRedshiftConverter(object):
             record_schema = self.compose_record_schema(
                 {'name': self.col_name,
                  'type': {
-                     'type': 'array',
-                     'items': {
-                         'type': 'map',
-                         'values': 'string'
-                     }
+                     'name': 'simple_name',
+                     'type': 'fixed',
+                     'size': 2
                  }}
             )
             converter.convert(record_schema)
+
+    def test_convert_with_field_array(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'array',
+                 'items': "string"}
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(65535),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_array_with_fixed_len(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'array',
+                 'items': "string"},
+             AvroMetaDataKeys.FIX_LEN: 10
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(10),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_array_with_max_len(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'array',
+                 'items': "string"},
+             AvroMetaDataKeys.MAX_LEN: 50
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(100),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_nullable_array(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null', {
+                 'type': 'array',
+                 'items': "string"}
+             ]},
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(65535),
+                is_nullable=True
+            ),
+        )
+
+    def test_convert_with_nullable_array_with_max_len(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null', {
+                 'type': 'array',
+                 'items': "string"}
+             ],
+             AvroMetaDataKeys.MAX_LEN: 50},
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(100),
+                is_nullable=True
+            ),
+        )
+
+    def test_convert_with_field_map(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'map',
+                 'values': "int"}
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(65535),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_map_with_fixed_len(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'map',
+                 'values': "int"},
+             AvroMetaDataKeys.FIX_LEN: 10
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(10),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_map_with_max_len(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': {
+                 'type': 'map',
+                 'values': "int"},
+             AvroMetaDataKeys.MAX_LEN: 50
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(100),
+                is_nullable=False
+            ),
+        )
+
+    def test_convert_with_field_nullable_map(self, converter):
+        self._convert_and_assert_with_one_column(
+            converter,
+            {'name': self.col_name,
+             'type': ['null', {
+                 'type': 'map',
+                 'values': "int"}]
+             },
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(65535),
+                is_nullable=True
+            ),
+        )
 
     def test_convert_with_field_null(self, converter):
         with pytest.raises(SchemaConversionException):
