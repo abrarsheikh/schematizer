@@ -94,8 +94,7 @@ class AvroToRedshiftConverter(BaseConverter):
         )
 
     def _create_column_type(self, field):
-        column_type = self._convert_field(field)
-        return column_type
+        return self._convert_field(field)
 
     def _get_field_type(self, field):
         if self._is_union_schema(field.type):
