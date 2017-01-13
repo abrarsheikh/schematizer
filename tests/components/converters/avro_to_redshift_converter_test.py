@@ -360,11 +360,11 @@ class TestAvroToRedshiftConverter(object):
         map_field_metadata,
         expected_varchar_len
     ):
-        avro_array_field = self._get_avro_array_field(is_nullable)
-        avro_array_field.update(**map_field_metadata)
+        avro_map_field = self._get_avro_map_field(is_nullable)
+        avro_map_field.update(**map_field_metadata)
         self._convert_and_assert_with_one_column(
             converter,
-            avro_array_field,
+            avro_map_field,
             SQLColumn(
                 self.col_name,
                 redshift_types.RedshiftVarChar(expected_varchar_len),
