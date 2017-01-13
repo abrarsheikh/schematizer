@@ -80,7 +80,7 @@ class TestAvroToRedshiftConverter(object):
             **self.get_table_metadata()
         )
         actual_table = converter.convert(record_schema)
-        # TODO(tajinder|DATAPIPE-1135): Refactor SQLColumnDataType and its
+        # TODO(tajinder|DATAPIPE-1035): Refactor SQLColumnDataType and its
         # subclasses to handle __eq__ and SQLTable objects comparison.
         assert expected_table == actual_table
 
@@ -325,7 +325,7 @@ class TestAvroToRedshiftConverter(object):
             converter.convert(record_schema)
 
     @pytest.mark.parametrize("array_field_metadata, expected_varchar_len", [
-        ({AvroMetaDataKeys.FIX_LEN: 10}, 10000),
+        ({AvroMetaDataKeys.FIX_LEN: 10}, 10),
         ({AvroMetaDataKeys.MAX_LEN: 50}, 100),
         ({}, 65535),
     ])
