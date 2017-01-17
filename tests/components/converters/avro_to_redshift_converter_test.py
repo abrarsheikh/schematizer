@@ -37,6 +37,10 @@ class TestAvroToRedshiftConverter(object):
     def converter(self):
         return AvroToRedshiftConverter()
 
+    @pytest.fixture(params=[True, False])
+    def is_nullable(self, request):
+        return request.param
+
     @property
     def avro_schema_name(self):
         return 'foo'
@@ -62,10 +66,10 @@ class TestAvroToRedshiftConverter(object):
         return ['bar']
 
     def _convert_and_assert_with_one_column(
-            self,
-            converter,
-            avro_field,
-            expected_column
+        self,
+        converter,
+        avro_field,
+        expected_column
     ):
         record_schema = self.compose_record_schema(avro_field)
         expected_table = SQLTable(
@@ -76,7 +80,29 @@ class TestAvroToRedshiftConverter(object):
             **self.get_table_metadata()
         )
         actual_table = converter.convert(record_schema)
+        # TODO(tajinder|DATAPIPE-1035): Refactor SQLColumnDataType and its
+        # subclasses to handle __eq__ and SQLTable objects comparison.
         assert expected_table == actual_table
+
+    def _get_avro_array_field(self, is_nullable):
+        if is_nullable:
+            return {
+                'name': self.col_name,
+                'type': ['null', {'type': 'array', 'items': "string"}]
+            }
+        return {
+            'name': self.col_name, 'type': {'type': 'array', 'items': "string"}
+        }
+
+    def _get_avro_map_field(self, is_nullable):
+        if is_nullable:
+            return {
+                'name': self.col_name,
+                'type': ['null', {'type': 'map', 'values': "int"}]
+            }
+        return {
+            'name': self.col_name, 'type': {'type': 'map', 'values': "int"}
+        }
 
     def compose_record_schema(self, avro_field):
         return {
@@ -291,14 +317,60 @@ class TestAvroToRedshiftConverter(object):
             record_schema = self.compose_record_schema(
                 {'name': self.col_name,
                  'type': {
-                     'type': 'array',
-                     'items': {
-                         'type': 'map',
-                         'values': 'string'
-                     }
+                     'name': 'simple_name',
+                     'type': 'fixed',
+                     'size': 2
                  }}
             )
             converter.convert(record_schema)
+
+    @pytest.mark.parametrize("array_field_metadata, expected_varchar_len", [
+        ({AvroMetaDataKeys.FIX_LEN: 10}, 10),
+        ({AvroMetaDataKeys.MAX_LEN: 50}, 100),
+        ({}, 65535),
+    ])
+    def test_convert_with_field_array(
+        self,
+        converter,
+        is_nullable,
+        array_field_metadata,
+        expected_varchar_len
+    ):
+        avro_array_field = self._get_avro_array_field(is_nullable)
+        avro_array_field.update(**array_field_metadata)
+        self._convert_and_assert_with_one_column(
+            converter,
+            avro_array_field,
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(expected_varchar_len),
+                is_nullable=is_nullable
+            ),
+        )
+
+    @pytest.mark.parametrize("map_field_metadata, expected_varchar_len", [
+        ({AvroMetaDataKeys.FIX_LEN: 10}, 10),
+        ({AvroMetaDataKeys.MAX_LEN: 50}, 100),
+        ({}, 65535),
+    ])
+    def test_convert_with_field_map(
+        self,
+        converter,
+        is_nullable,
+        map_field_metadata,
+        expected_varchar_len
+    ):
+        avro_map_field = self._get_avro_map_field(is_nullable)
+        avro_map_field.update(**map_field_metadata)
+        self._convert_and_assert_with_one_column(
+            converter,
+            avro_map_field,
+            SQLColumn(
+                self.col_name,
+                redshift_types.RedshiftVarChar(expected_varchar_len),
+                is_nullable=is_nullable
+            ),
+        )
 
     def test_convert_with_field_null(self, converter):
         with pytest.raises(SchemaConversionException):

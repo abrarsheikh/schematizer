@@ -94,15 +94,20 @@ class AvroToRedshiftConverter(BaseConverter):
         )
 
     def _create_column_type(self, field):
-        field_type = self._get_field_type(field)
-        column_type = self._convert_field_type(field_type, field)
-        return column_type
+        return self._convert_field(field)
 
     def _get_field_type(self, field):
         if self._is_union_schema(field.type):
             return next((sub_type for sub_type in field.type.schemas
                          if not self._is_null_type(sub_type)), None)
         return field.type
+
+    def _get_field_type_name(self, field_type):
+        if self._is_primitive_schema(field_type):
+            return field_type.fullname
+        if self._is_complex_schema(field_type):
+            return field_type.type
+        return field_type
 
     def _is_column_nullable(self, field):
         types_to_exam = (field.type.schemas
@@ -136,19 +141,10 @@ class AvroToRedshiftConverter(BaseConverter):
             )
         )
 
-    def _convert_field_type(self, field_type, field):
+    def _convert_field(self, field):
         # TODO(chohan|DATAPIPE-1999): Revisit the conversion logic here to
         # handle avro schemas in a more general way.
-        is_complex = False
-        if self._is_primitive_schema(field_type):
-            typ = field_type.fullname
-        elif self._is_complex_schema(field_type):
-            typ = field_type.type
-            is_complex = True
-        else:
-            typ = field_type
-
-        converter_func = self._type_converters.get(typ)
+        field_type = self._get_field_type(field)
 
         if self._is_logical_schema(field_type):
             logical_converter_func = self._logical_type_converters.get(
@@ -157,10 +153,11 @@ class AvroToRedshiftConverter(BaseConverter):
             if logical_converter_func:
                 return logical_converter_func(field_type)
 
+        typ = self._get_field_type_name(field_type)
+
+        converter_func = self._type_converters.get(typ)
         if converter_func:
-            return converter_func(
-                field_type if is_complex else field
-            )
+            return converter_func(field)
 
         raise UnsupportedTypeException(
             "Unable to convert field {0} type {1} to Redshift column type."
@@ -179,6 +176,8 @@ class AvroToRedshiftConverter(BaseConverter):
             'boolean': self._convert_boolean_type,
             'enum': self._convert_enum_type,
             'bytes': self._convert_bytes_type,
+            'array': self._convert_array_and_map_type,
+            'map': self._convert_array_and_map_type,
         }
 
     def _convert_null_type(self, field):
@@ -220,6 +219,15 @@ class AvroToRedshiftConverter(BaseConverter):
         """Only supports char and varchar. If neither fix_len nor max_len
         is specified, an exception is thrown.
         """
+        result = self._get_varchar_type(field, char_bytes)
+        if result:
+            return result
+        raise SchemaConversionException(
+            "Unable to convert `string` type without metadata {0} or {1}."
+            .format(AvroMetaDataKeys.FIX_LEN, AvroMetaDataKeys.MAX_LEN)
+        )
+
+    def _get_varchar_type(self, field, char_bytes):
         fix_len = field.props.get(AvroMetaDataKeys.FIX_LEN)
         if fix_len:
             # Columns with a CHAR data type only accept single-byte UTF-8
@@ -234,19 +242,21 @@ class AvroToRedshiftConverter(BaseConverter):
                 min(int(max_len) * char_bytes, self.MAX_VARCHAR_BYTES)
             )
 
-        raise SchemaConversionException(
-            "Unable to convert `string` type without metadata {0} or {1}."
-            .format(AvroMetaDataKeys.FIX_LEN, AvroMetaDataKeys.MAX_LEN)
-        )
-
     def _convert_bytes_type(self, field):
         return self._convert_string_type(field, char_bytes=1)
+
+    def _convert_array_and_map_type(self, field):
+        result = self._get_varchar_type(field, self.CHAR_BYTES)
+        if result:
+            return result
+        return redshift_data_types.RedshiftVarChar(self.MAX_VARCHAR_BYTES)
 
     def _convert_boolean_type(self, field):
         return redshift_data_types.RedshiftBoolean()
 
     def _convert_enum_type(self, field):
-        max_symbol_len = max(len(symbol) for symbol in field.symbols)
+        field_type = self._get_field_type(field)
+        max_symbol_len = max(len(symbol) for symbol in field_type.symbols)
         return redshift_data_types.RedshiftVarChar(
             min(max_symbol_len, self.MAX_VARCHAR_BYTES)
         )
@@ -277,7 +287,7 @@ class AvroToRedshiftConverter(BaseConverter):
 
     def _get_aliases_metadata(self, props):
         return ({MetaDataKey.ALIASES: props.get(MetaDataKey.ALIASES)}
-                if props.get('aliases') else {})
+                if props.get(MetaDataKey.ALIASES) else {})
 
     def _get_column_metadata(self, field):
         return self._get_aliases_metadata(field.props)

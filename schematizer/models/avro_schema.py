@@ -24,6 +24,7 @@ from sqlalchemy import Column
 from sqlalchemy import ForeignKey
 from sqlalchemy import func
 from sqlalchemy import Integer
+from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum
@@ -60,6 +61,10 @@ class AvroSchema(Base, BaseModel):
 
     # The schema_id where this schema is derived from.
     base_schema_id = Column(Integer, ForeignKey('avro_schema.id'))
+
+    # alias of the schema. (namespace, source, alias) combination uniquely
+    # identifies a schema.
+    alias = Column(String, default=None)
 
     # Schema status: RW (read/write), R (read-only), Disabled
     status = Column(

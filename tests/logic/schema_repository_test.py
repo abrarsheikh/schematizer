@@ -519,7 +519,7 @@ class TestRegisterSchema(DBTestCase):
             "pkey": ["id"]
         }
 
-    def test_register_new_avro_schema_json(self):
+    def test_register_new_schema_json(self):
         actual = self._register_avro_schema(self.avro_schema_json)
         expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
         asserts.assert_equal_avro_schema(actual, expected)
@@ -691,15 +691,15 @@ class TestRegisterSchema(DBTestCase):
             )
 
     def test_register_same_schema_with_same_base_schema(self):
-        result_a1 = self._register_avro_schema(
+        schema_1 = self._register_avro_schema(
             self.avro_schema_json,
             base_schema_id=10
         )
-        result_a2 = self._register_avro_schema(
+        schema_2 = self._register_avro_schema(
             self.avro_schema_json,
             base_schema_id=10
         )
-        asserts.assert_equal_avro_schema(result_a1, result_a2)
+        asserts.assert_equal_avro_schema(schema_1, schema_2)
 
     def test_register_different_schemas_with_same_base_schema(self):
         # Registering a different transformed schema should result in a

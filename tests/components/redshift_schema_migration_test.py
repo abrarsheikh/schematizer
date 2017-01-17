@@ -429,6 +429,15 @@ class TestRedshiftSchemaMigration(object):
                     'type': 'enum', 'name': 'varchar_col_enum',
                     'symbols': ['a', 'abc', 'ab']}
                  },
+                {'name': 'varchar_col_array_fixlen', 'type': [
+                    'null', {'type': 'array', 'items': "string"}
+                ], 'fixlen': 256},
+                {'name': 'varchar_col_array_maxlen', 'type': [
+                    'null', {'type': 'array', 'items': "string"}
+                ], 'maxlen': 256},
+                {'name': 'varchar_col_array_maxsize', 'type': [
+                    'null', {'type': 'array', 'items': "string"}
+                ]},
 
 
                 # DATETYPE TYPES
@@ -468,6 +477,9 @@ class TestRedshiftSchemaMigration(object):
             'varchar_col_maxlen varchar(512),'
             'varchar_col_maxsize varchar(65535),'
             'varchar_col_enum varchar(3) not null,'
+            'varchar_col_array_fixlen varchar(256),'
+            'varchar_col_array_maxlen varchar(512),'
+            'varchar_col_array_maxsize varchar(65535),'
             'date_col date,'
             'timestamp_col timestamp,'
             'timestamptz_col timestamptz,'
