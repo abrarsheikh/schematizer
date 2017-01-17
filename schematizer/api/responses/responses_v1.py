@@ -74,6 +74,8 @@ def get_schema_response_from_avro_schema(avro_schema):
             []
         ),
         'note': get_note_response_from_note(avro_schema.note),
+        'required_meta_attr_schema_ids':
+            avro_schema.required_meta_attr_schema_ids,
         'created_at': _format_timestamp(avro_schema.created_at),
         'updated_at': _format_timestamp(avro_schema.updated_at)
     }

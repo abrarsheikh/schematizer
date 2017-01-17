@@ -520,10 +520,9 @@ class TestGetMetaAttrBySchemaId(ApiTestBase):
         }
 
     @pytest.fixture
-    def new_biz_schema_id(self, mock_request, request_json):
+    def new_biz_schema(self, mock_request, request_json):
         mock_request.json_body = request_json
-        new_biz_schema = schema_views.register_schema(mock_request)
-        return new_biz_schema['schema_id']
+        return schema_views.register_schema(mock_request)
 
     def test_non_existing_schema(self, mock_request):
         expected_exception = self.get_http_exception(404)
@@ -537,19 +536,25 @@ class TestGetMetaAttrBySchemaId(ApiTestBase):
     def test_get_meta_attr_by_new_schema_id(
         self,
         mock_request,
-        new_biz_schema_id,
+        new_biz_schema,
         meta_attr_schema
     ):
-        mock_request.matchdict = {'schema_id': str(new_biz_schema_id)}
+        mock_request.matchdict = {
+            'schema_id': str(new_biz_schema['schema_id'])
+        }
         actual = schema_views.get_meta_attributes_by_schema_id(mock_request)
         expected = [meta_attr_schema.id]
         assert actual == expected
+        assert new_biz_schema['required_meta_attr_schema_ids'] == [
+            meta_attr_schema.id
+        ]
 
     def test_get_meta_attr_by_old_schema_id(self, mock_request, biz_schema):
         mock_request.matchdict = {'schema_id': str(biz_schema.id)}
         actual = schema_views.get_meta_attributes_by_schema_id(mock_request)
         expected = []
         assert actual == expected
+        assert biz_schema.required_meta_attr_schema_ids == []
 
 
 class TestGetDataTaragetsBySchemaID(ApiTestBase):
