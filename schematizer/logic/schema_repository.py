@@ -256,7 +256,7 @@ def _get_schema_if_exists(
     for topic in topic_candidates:
         if lock:
             _lock_topic_and_schemas(topic.id)
-        avro_schemas = _get_schemas_only_by_topic_id(topic.id)
+        avro_schemas = _get_schemas_by_topic_id(topic.id)
         log.info('[{}] Checking {} schemas in topic {} for {}.'.format(
             db_type, len(avro_schemas), topic.name, new_schema_json
         ))
@@ -278,8 +278,10 @@ def _get_schema_if_exists(
     return None
 
 
-def _get_schemas_only_by_topic_id(topic_id):
+def _get_schemas_by_topic_id(topic_id):
     """Get id and avro schema of all the active schemas in the given topic.
+    Note that this function only returns schema id and schema itself instead
+    of entire AvroSchema object.
     """
     results = session.query(
         models.AvroSchema.id,
