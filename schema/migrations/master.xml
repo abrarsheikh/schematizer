@@ -31,6 +31,7 @@ under the License.
   <include file="producer.xml"/>
   <include file="refresh.xml"/>
   <include file="schema_meta_attribute_mapping.xml"/>
+  <include file="schema_alias.xml"/>
   <include file="source.xml"/>
   <include file="source_category.xml"/>
   <include file="topic.xml"/>
