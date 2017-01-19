@@ -523,29 +523,9 @@ class TestRegisterSchema(DBTestCase):
         expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
         asserts.assert_equal_avro_schema(actual, expected)
 
-    def test_register_new_schema_json_with_alias(self):
-        actual = self._register_avro_schema(
-            self.avro_schema_json,
-            alias='simple_schema_alias'
-        )
-        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
-        asserts.assert_equal_avro_schema(actual, expected)
-
     def test_register_same_schema_twice(self):
         schema_one = self._register_avro_schema(self.avro_schema_json)
         schema_two = self._register_avro_schema(self.avro_schema_json)
-        asserts.assert_equal_avro_schema(schema_one, schema_two)
-
-    def test_register_same_schema_with_alias_twice(self):
-        alias = 'simple_schema_alias'
-        schema_one = self._register_avro_schema(
-            self.avro_schema_json,
-            alias=alias
-        )
-        schema_two = self._register_avro_schema(
-            self.avro_schema_json,
-            alias=alias
-        )
         asserts.assert_equal_avro_schema(schema_one, schema_two)
 
     def test_register_same_schema_in_diff_namespace(self):
@@ -598,25 +578,6 @@ class TestRegisterSchema(DBTestCase):
             schema_one.topic.source, schema_two.topic.source
         )
 
-    def test_register_same_schema_with_alias_with_diff_base_schema(
-        self
-    ):
-        alias = "simple_schema_alias"
-        self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=None,
-            alias=alias
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                base_schema_id=10,
-                alias=alias
-            )
-        assert err.value.message == (
-            "alias `{}` has already been taken.".format(alias)
-        )
-
     def test_register_schema_with_different_pii(self):
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
@@ -629,37 +590,6 @@ class TestRegisterSchema(DBTestCase):
         assert schema_one.topic.id != schema_two.topic.id
         asserts.assert_equal_source(
             schema_one.topic.source, schema_two.topic.source
-        )
-
-    def test_register_schema_with_alias_with_different_pii(self):
-        alias = "simple_schema_alias"
-        self._register_avro_schema(
-            self.avro_schema_json,
-            contains_pii=False,
-            alias=alias
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                contains_pii=True,
-                alias=alias
-            )
-        assert err.value.message == (
-            "alias `{}` has already been taken.".format(alias)
-        )
-
-    def test_register_same_schema_with_different_aliases(self):
-        self._register_avro_schema(
-            self.avro_schema_json,
-            alias="alias_one"
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                alias="alias_two"
-            )
-        assert err.value.message == (
-            "Same schema with a different alias already exists."
         )
 
     def test_register_schema_with_pkey_added(self):
@@ -737,20 +667,6 @@ class TestRegisterSchema(DBTestCase):
             base_schema_id=10
         )
         asserts.assert_equal_avro_schema(schema_1, schema_2)
-
-    def test_register_same_schema_with_same_base_schema_and_alias(self):
-        alias = 'simple_schema_alias'
-        result_a1 = self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=10,
-            alias=alias
-        )
-        result_a2 = self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=10,
-            alias=alias
-        )
-        asserts.assert_equal_avro_schema(result_a1, result_a2)
 
     def test_register_different_schemas_with_same_base_schema(self):
         # Registering a different transformed schema should result in a
