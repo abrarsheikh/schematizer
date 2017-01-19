@@ -193,15 +193,6 @@ def register_avro_schema_from_avro_json(
     )
 
 
-def _get_meta_attributes_by_fullname(namespace_name, source_name):
-    source = get_source_by_fullname(namespace_name, source_name)
-    if source:
-        return {
-            o for o in meta_attr_repo.get_meta_attributes_by_source(source.id)
-        }
-    return {}
-
-
 def _strip_if_not_none(original_str):
     if not original_str:
         return original_str
