@@ -35,7 +35,7 @@ class SchemaAlias(Base, BaseModel):
             'namespace_id',
             'source_id',
             'alias',
-            name='namespace_id_source_id_alias'
+            name='namespace_id_source_id_alias_unique_constraint',
         ),
     )
 
