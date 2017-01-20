@@ -46,7 +46,7 @@ class SchemaAlias(Base, BaseModel):
     source_id = Column(Integer, ForeignKey('source.id'), nullable=False)
     alias = Column(String, nullable=False)
 
-    schema_id = Column(Integer, ForeignKey('schema.id'), nullable=False)
+    schema_id = Column(Integer, ForeignKey('avro_schema.id'), nullable=False)
 
     # Timestamp when the entry is created
     created_at = Column(Integer, nullable=False, default=func.unix_timestamp())

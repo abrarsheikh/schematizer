@@ -30,6 +30,7 @@ from schematizer.models.namespace import *
 from schematizer.models.note import *
 from schematizer.models.producer import *
 from schematizer.models.refresh import *
+from schematizer.models.schema_alias import *
 from schematizer.models.schema_meta_attribute_mapping import *
 from schematizer.models.source import *
 from schematizer.models.source_category import *
