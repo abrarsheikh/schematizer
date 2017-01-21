@@ -364,15 +364,15 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         meta_attr_schema
     ):
         mock_request.json_body = request_json
-        base_schema = schema_views.register_schema(mock_request)
-        assert base_schema['required_meta_attr_schema_ids'] == []
+        schema_without_meta_attr = schema_views.register_schema(mock_request)
+        assert schema_without_meta_attr['required_meta_attr_schema_ids'] == []
         factories.create_meta_attribute_mapping(
             meta_attr_schema.id,
             models.Source.__name__,
-            base_schema['topic']['source']['source_id']
+            schema_without_meta_attr['topic']['source']['source_id']
         )
-        base_schema = schema_views.register_schema(mock_request)
-        assert base_schema['required_meta_attr_schema_ids'] == [
+        schema_with_meta_attr = schema_views.register_schema(mock_request)
+        assert schema_with_meta_attr['required_meta_attr_schema_ids'] == [
             meta_attr_schema.id
         ]
 

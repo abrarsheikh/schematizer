@@ -481,6 +481,13 @@
                     },
                     "type": "array"
                 },
+                "required_meta_attr_schema_ids": {
+                    "description": "List of MetaAttribute schema IDs required for this schema.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "schema": {
                     "description": "Json formatted avro schema string.",
                     "type": "string"
