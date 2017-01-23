@@ -18,6 +18,7 @@ from __future__ import unicode_literals
 
 import datetime
 
+import mock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
@@ -523,30 +524,42 @@ class TestRegisterSchema(DBTestCase):
         expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
         asserts.assert_equal_avro_schema(actual, expected)
 
-    def test_register_new_schema_json_with_alias(self):
-        actual = self._register_avro_schema(
-            self.avro_schema_json,
-            alias='simple_schema_alias'
-        )
-        expected = utils.get_entity_by_id(models.AvroSchema, actual.id)
-        asserts.assert_equal_avro_schema(actual, expected)
-
     def test_register_same_schema_twice(self):
         schema_one = self._register_avro_schema(self.avro_schema_json)
         schema_two = self._register_avro_schema(self.avro_schema_json)
         asserts.assert_equal_avro_schema(schema_one, schema_two)
 
-    def test_register_same_schema_with_alias_twice(self):
-        alias = 'simple_schema_alias'
+    def test_register_already_existing_schema(self):
+        schema_one = self._register_avro_schema(self.avro_schema_json)
+
+        schema_two_json = dict(self.avro_schema_json)
+        schema_two_json['fields'].append(
+            {"type": "int", "name": "num", "doc": "num", "default": 0}
+        )
+        schema_two = self._register_avro_schema(schema_two_json)
+        assert schema_two.id != schema_one.id
+        assert schema_two.topic_id == schema_one.topic_id
+
+        schema_three = self._register_avro_schema(self.avro_schema_json)
+        asserts.assert_equal_avro_schema(schema_three, schema_one)
+
+    def test_register_already_existing_but_disabled_schema(self):
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
-            alias=alias
+            status=models.AvroSchemaStatus.DISABLED
         )
-        schema_two = self._register_avro_schema(
-            self.avro_schema_json,
-            alias=alias
+
+        schema_two_json = dict(self.avro_schema_json)
+        schema_two_json['fields'].append(
+            {"type": "int", "name": "num", "doc": "num", "default": 0}
         )
-        asserts.assert_equal_avro_schema(schema_one, schema_two)
+        schema_two = self._register_avro_schema(schema_two_json)
+        assert schema_two.id != schema_one.id
+        assert schema_two.topic_id != schema_one.topic_id
+
+        schema_three = self._register_avro_schema(self.avro_schema_json)
+        assert schema_three.id != schema_two.id
+        assert schema_three.topic_id == schema_two.topic_id
 
     def test_register_same_schema_in_diff_namespace(self):
         schema_one = self._register_avro_schema(
@@ -598,25 +611,6 @@ class TestRegisterSchema(DBTestCase):
             schema_one.topic.source, schema_two.topic.source
         )
 
-    def test_register_same_schema_with_alias_with_diff_base_schema(
-        self
-    ):
-        alias = "simple_schema_alias"
-        self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=None,
-            alias=alias
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                base_schema_id=10,
-                alias=alias
-            )
-        assert err.value.message == (
-            "alias `{}` has already been taken.".format(alias)
-        )
-
     def test_register_schema_with_different_pii(self):
         schema_one = self._register_avro_schema(
             self.avro_schema_json,
@@ -629,37 +623,6 @@ class TestRegisterSchema(DBTestCase):
         assert schema_one.topic.id != schema_two.topic.id
         asserts.assert_equal_source(
             schema_one.topic.source, schema_two.topic.source
-        )
-
-    def test_register_schema_with_alias_with_different_pii(self):
-        alias = "simple_schema_alias"
-        self._register_avro_schema(
-            self.avro_schema_json,
-            contains_pii=False,
-            alias=alias
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                contains_pii=True,
-                alias=alias
-            )
-        assert err.value.message == (
-            "alias `{}` has already been taken.".format(alias)
-        )
-
-    def test_register_same_schema_with_different_aliases(self):
-        self._register_avro_schema(
-            self.avro_schema_json,
-            alias="alias_one"
-        )
-        with pytest.raises(ValueError) as err:
-            self._register_avro_schema(
-                self.avro_schema_json,
-                alias="alias_two"
-            )
-        assert err.value.message == (
-            "Same schema with a different alias already exists."
         )
 
     def test_register_schema_with_pkey_added(self):
@@ -738,20 +701,6 @@ class TestRegisterSchema(DBTestCase):
         )
         asserts.assert_equal_avro_schema(schema_1, schema_2)
 
-    def test_register_same_schema_with_same_base_schema_and_alias(self):
-        alias = 'simple_schema_alias'
-        result_a1 = self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=10,
-            alias=alias
-        )
-        result_a2 = self._register_avro_schema(
-            self.avro_schema_json,
-            base_schema_id=10,
-            alias=alias
-        )
-        asserts.assert_equal_avro_schema(result_a1, result_a2)
-
     def test_register_different_schemas_with_same_base_schema(self):
         # Registering a different transformed schema should result in a
         # different schema/topic
@@ -795,8 +744,12 @@ class TestRegisterSchema(DBTestCase):
         assert schema_one.id != schema_two.id
         asserts.assert_equal_topic(schema_one.topic, schema_two.topic)
 
+        compatible_schema_json = dict(self.avro_schema_json)
+        compatible_schema_json['fields'].append(
+            {"type": "int", "name": "age", "doc": "age", "default": 0}
+        )
         schema_three = self._register_avro_schema(
-            self.avro_schema_json,
+            compatible_schema_json,
             base_schema_id=10
         )
         assert schema_one.id != schema_three.id
@@ -1021,6 +974,29 @@ class TestRegisterSchema(DBTestCase):
             self._register_avro_schema(
                 self.avro_schema_json,
                 source_name=invalid_name
+            )
+
+    def test_logging_info(self):
+        with mock.patch('schematizer.logic.schema_repository.log') as mock_log:
+            self._register_avro_schema(self.avro_schema_json)
+            assert not mock_log.info.called
+
+            schema = self._register_avro_schema(self.avro_schema_json)
+            assert mock_log.info.call_count == 2
+            assert mock_log.info.call_args[0][0].startswith(
+                "[Slave] Found existing schema {} in topic {}".format(
+                    schema.id, schema.topic.name
+                )
+            )
+
+            another_schema_json = dict(self.avro_schema_json)
+            another_schema_json['fields'] = [
+                {"name": "some_field", "type": "string", "doc": "na"}
+            ]
+            self._register_avro_schema(another_schema_json)
+            assert mock_log.info.call_count == 6
+            assert mock_log.info.call_args[0][0].startswith(
+                "[Master] Cannot find existing schema in source"
             )
 
     def _register_avro_schema(self, avro_schema_json, **overrides):
