@@ -586,6 +586,13 @@
                     },
                     "type": "array"
                 },
+                "required_meta_attr_schema_ids": {
+                    "description": "List of MetaAttribute schema IDs required for this schema.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array"
+                },
                 "schema": {
                     "description": "Json formatted avro schema string.",
                     "type": "string"
@@ -798,7 +805,7 @@
         },
         "description": "Schematizer is REST service to register and retrieve Avro schemas, maintain Avro schema backward compatibilities, register producer and consumer of Avro schemas, and generate redshift push plans.",
         "title": "Data Pipeline Schematizer",
-        "version": "1.1.0"
+        "version": "1.2.0"
     },
     "paths": {
         "/v1/categories": {

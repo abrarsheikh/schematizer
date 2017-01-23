@@ -37,6 +37,8 @@ from schematizer.models.database import session
 from schematizer.models.note import Note
 from schematizer.models.note import ReferenceTypeEnum
 from schematizer.models.producer import Producer
+from schematizer.models.schema_meta_attribute_mapping import \
+    SchemaMetaAttributeMapping
 
 
 class AvroSchemaStatus(object):
@@ -140,6 +142,18 @@ class AvroSchema(Base, BaseModel):
                 schema_elements.append((nested_schema, parent_key))
 
         return avro_schema_obj.to_json()
+
+    @property
+    def required_meta_attr_schema_ids(self):
+        meta_attr_mappings = session.query(
+            SchemaMetaAttributeMapping
+        ).filter(
+            SchemaMetaAttributeMapping.schema_id == self.id
+        ).all()
+        return [
+            meta_attr_mapping.meta_attr_schema_id
+            for meta_attr_mapping in meta_attr_mappings
+        ]
 
     ELEMENT_ID_ATTR = 'element_id'
     DOC_ATTR = 'doc'
