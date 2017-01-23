@@ -365,16 +365,21 @@ class TestRegisterSchema(RegisterSchemaTestBase):
     ):
         mock_request.json_body = request_json
         schema_without_meta_attr = schema_views.register_schema(mock_request)
-        assert schema_without_meta_attr['required_meta_attr_schema_ids'] == []
+        expected = self.get_expected_schema_resp(
+            schema_without_meta_attr['schema_id']
+        )
+        assert schema_without_meta_attr == expected
         factories.create_meta_attribute_mapping(
             meta_attr_schema.id,
             models.Source.__name__,
             schema_without_meta_attr['topic']['source']['source_id']
         )
         schema_with_meta_attr = schema_views.register_schema(mock_request)
-        assert schema_with_meta_attr['required_meta_attr_schema_ids'] == [
-            meta_attr_schema.id
-        ]
+        expected = self.get_expected_schema_resp(
+            schema_with_meta_attr['schema_id'],
+            required_meta_attr_schema_ids=[meta_attr_schema.id]
+        )
+        assert schema_with_meta_attr == expected
 
 
 class TestRegisterSchemaFromMySQL(RegisterSchemaTestBase):
