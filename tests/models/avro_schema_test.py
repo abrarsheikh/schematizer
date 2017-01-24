@@ -427,3 +427,26 @@ class TestAvroSchemaModel(DBTestCase):
             models.AvroSchema.verify_avro_schema_has_docs(
                 invalid_avro_schema
             )
+
+    def test_avro_schema_with_meta_attr_mapping(
+        self,
+        array_schema_json
+    ):
+        avro_schema = factories.create_avro_schema(
+            array_schema_json
+        )
+        assert avro_schema.required_meta_attr_schema_ids == []
+        meta_attr_schema_1 = factories.create_avro_schema(array_schema_json)
+        meta_attr_schema_2 = factories.create_avro_schema(array_schema_json)
+        factories.create_schema_meta_attr_mapping(
+            avro_schema.id,
+            meta_attr_schema_1.id
+        )
+        factories.create_schema_meta_attr_mapping(
+            avro_schema.id,
+            meta_attr_schema_2.id
+        )
+        assert avro_schema.required_meta_attr_schema_ids == [
+            meta_attr_schema_1.id,
+            meta_attr_schema_2.id
+        ]

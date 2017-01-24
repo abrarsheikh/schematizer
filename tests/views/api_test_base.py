@@ -76,6 +76,7 @@ class ApiTestBase(DBTestCase):
             'topic': self.get_expected_topic_resp(avro_schema.topic_id),
             'status': models.AvroSchemaStatus.READ_AND_WRITE,
             'primary_keys': [],
+            'required_meta_attr_schema_ids': [],
             'created_at': _format_timestamp(avro_schema.created_at),
             'updated_at': _format_timestamp(avro_schema.updated_at)
         }
