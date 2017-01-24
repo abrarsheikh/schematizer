@@ -240,16 +240,16 @@ def generate_name(prefix=None):
     return '{}{}'.format(prefix or '', uuid.uuid4().hex)
 
 
-def create_schema_alias(
-    schema,
-    alias,
-):
+def create_schema_alias(schema_id, alias):
+
+    source = session.query(Source).join(Topic).join(AvroSchema).filter(
+        models.AvroSchema.id == schema_id).first()
 
     return _create_entity(
         session,
         SchemaAlias(
-            source_id=schema.source.id,
+            source_id=source.id,
             alias=alias,
-            schema_id=schema.id,
+            schema_id=schema_id,
         )
     )
