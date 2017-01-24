@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'schematizer'
-copyright = u'2014, BAM'
+copyright = u'2017, data-pipeline-team'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

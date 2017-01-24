@@ -22,8 +22,8 @@ from setuptools import setup
 
 setup(
     name='schematizer',
-    author='BAM',
-    author_email='bam@yelp.com',
+    author='data-pipeline-team',
+    author_email='data-pipeline-team@yelp.com',
     license='Copyright 2016 Yelp Inc.',
     packages=find_packages(exclude=['tests*']),
     install_requires=[

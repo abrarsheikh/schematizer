@@ -307,7 +307,7 @@ def _get_register_schema_payload(table_info):
     return {
         'namespace': 'schematizer_manual_test',
         'source': table_info.table_name,
-        'source_owner_email': 'bam+schematizer_test@yelp.com',
+        'source_owner_email': 'data-pipeline-team+schematizer_test@yelp.com',
         'new_create_table_stmt': table_info.create_table_stmt,
         'contains_pii': False
     }
