@@ -32,17 +32,17 @@ class SchemaAlias(Base, BaseModel):
     __tablename__ = 'schema_alias'
     __table_args__ = (
         UniqueConstraint(
-            'namespace_id',
             'source_id',
             'alias',
-            name='namespace_id_source_id_alias_unique_constraint',
+            name='source_id_alias_unique_constraint',
         ),
     )
 
     id = Column(Integer, primary_key=True)
 
-    # The (namespace, source, alias) combination maps to a single schema_id
-    namespace_id = Column(Integer, ForeignKey('namespace.id'), nullable=False)
+    # (namespace_name, source_name, alias) map to a single schema_id
+    # and since source_id maps to a single (namespace_name, source_name),
+    # we use (source_id, alias) here
     source_id = Column(Integer, ForeignKey('source.id'), nullable=False)
     alias = Column(String, nullable=False)
 

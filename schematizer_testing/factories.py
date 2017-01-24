@@ -241,29 +241,14 @@ def generate_name(prefix=None):
 
 
 def create_schema_alias(
+    schema,
     alias,
-    namespace_name='default_namespace',
-    source_name='default_source',
 ):
-
-    namespace = get_or_create_namespace(namespace_name)
-    source = get_or_create_source(namespace_name, source_name)
-
-    schema = create_avro_schema(
-        schema_json={
-            "type": "fixed",
-            "size": 16,
-            "name": generate_name("fixed_type")
-        },
-        namespace=namespace_name,
-        source=source_name,
-    )
 
     return _create_entity(
         session,
         SchemaAlias(
-            namespace_id=namespace.id,
-            source_id=source.id,
+            source_id=schema.source.id,
             alias=alias,
             schema_id=schema.id,
         )

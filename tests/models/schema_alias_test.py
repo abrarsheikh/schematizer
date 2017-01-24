@@ -26,6 +26,22 @@ from tests.models.base_model_test import GetModelsBasicTests
 from tests.models.testing_db import DBTestCase
 
 
+def sample_schema(namespace_name='default_namespace', source_name='default_source'):
+    #namespace = get_or_create_namespace(namespace_name)
+    #source = get_or_create_source(namespace_name, source_name)
+
+    schema = factories.create_avro_schema(
+        schema_json={
+            "type": "fixed",
+            "size": 16,
+            "name": factories.generate_name("fixed_type")
+        },
+        namespace=namespace_name,
+        source=source_name,
+    )
+    return schema
+
+
 class TestGetSchemaAlias(GetModelsBasicTests):
 
     entity_cls = SchemaAlias
@@ -42,8 +58,9 @@ class TestSchemaAliasConstraints(DBTestCase):
 
     def test_duplicate_aliases(self):
         alias = 'duplicate_alias'
+        schema = sample_schema()
 
-        factories.create_schema_alias(alias)
+        factories.create_schema_alias(schema, alias)
 
         with pytest.raises(IntegrityError):
             factories.create_schema_alias(alias)

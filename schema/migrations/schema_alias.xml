@@ -24,9 +24,6 @@ under the License.
       <column autoIncrement="true" name="id" type="INT(11)">
         <constraints primaryKey="true"/>
       </column>
-      <column name="namespace_id" type="INT(11)">
-        <constraints nullable="false"/>
-      </column>
       <column name="source_id" type="INT(11)">
         <constraints nullable="false"/>
       </column>
@@ -49,8 +46,8 @@ under the License.
   </changeSet>
 
   <changeSet author="jstringh" id="1484866253">
-    <addUniqueConstraint columnNames="namespace_id, source_id, alias"
-          constraintName="namespace_id_source_id_alias_unique_constraint"
+    <addUniqueConstraint columnNames="source_id, alias"
+          constraintName="source_id_alias_unique_constraint"
           tableName="schema_alias"/>
   </changeSet>
 
