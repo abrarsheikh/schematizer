@@ -801,7 +801,7 @@
     },
     "info": {
         "contact": {
-            "email": "bam@yelp.com"
+            "email": "data-pipeline-team@yelp.com"
         },
         "description": "Schematizer is REST service to register and retrieve Avro schemas, maintain Avro schema backward compatibilities, register producer and consumer of Avro schemas, and generate redshift push plans.",
         "title": "Data Pipeline Schematizer",
