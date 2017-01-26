@@ -243,7 +243,7 @@ def generate_name(prefix=None):
 def create_schema_alias(schema_id, alias):
 
     source = session.query(Source).join(Topic).join(AvroSchema).filter(
-        models.AvroSchema.id == schema_id).first()
+        models.AvroSchema.id == schema_id).one()
 
     return _create_entity(
         session,
