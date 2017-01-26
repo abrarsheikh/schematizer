@@ -36,7 +36,9 @@ class TestGetSchemaAlias(GetModelsBasicTests):
             {
                 "name": "biz",
                 "type": "record",
-                "fields": [{"name": "id", "type": "int", "doc": "id", "default": 0}],
+                "fields": [
+                    {"name": "id", "type": "int", "doc": "id", "default": 0}
+                ],
                 "doc": "biz table"
             }
         ).id
