@@ -110,6 +110,11 @@ def assert_equal_schema_meta_attr_mapping(actual, expected):
     _assert_equal_multi_attrs(actual, expected, *attrs)
 
 
+def assert_equal_schema_alias(actual, expected):
+    attrs = _get_model_column_names(models.SchemaAlias)
+    _assert_equal_multi_attrs(actual, expected, *attrs)
+
+
 def assert_equal_entity_list(actual_list, expected_list, assert_func):
     assert len(actual_list) == len(expected_list)
     for expected, actual in zip(expected_list, actual_list):

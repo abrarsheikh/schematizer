@@ -32,6 +32,7 @@ from schematizer.models.namespace import Namespace
 from schematizer.models.refresh import Priority
 from schematizer.models.refresh import Refresh
 from schematizer.models.refresh import RefreshStatus
+from schematizer.models.schema_alias import SchemaAlias
 from schematizer.models.schema_meta_attribute_mapping import (
     SchemaMetaAttributeMapping
 )
@@ -237,3 +238,18 @@ def create_schema_meta_attr_mapping(schema_id, meta_attr_id):
 
 def generate_name(prefix=None):
     return '{}{}'.format(prefix or '', uuid.uuid4().hex)
+
+
+def create_schema_alias(schema_id, alias):
+
+    source = session.query(Source).join(Topic).join(AvroSchema).filter(
+        models.AvroSchema.id == schema_id).one()
+
+    return _create_entity(
+        session,
+        SchemaAlias(
+            source_id=source.id,
+            alias=alias,
+            schema_id=schema_id,
+        )
+    )

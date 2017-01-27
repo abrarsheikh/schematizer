@@ -64,6 +64,9 @@ class AvroSchema(Base, BaseModel):
     # The schema_id where this schema is derived from.
     base_schema_id = Column(Integer, ForeignKey('avro_schema.id'))
 
+    # TODO(DATAPIPE-1440): Delete alias, as we're migrating this to the
+    # schema_alias table
+
     # alias of the schema. (namespace, source, alias) combination uniquely
     # identifies a schema.
     alias = Column(String, default=None)
