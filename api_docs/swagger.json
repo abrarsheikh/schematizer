@@ -1659,28 +1659,28 @@
                 "description": "",
                 "operationId": "get_schema_from_alias",
                 "parameters": [
-		    {
+                    {
                         "description": "Namespace name of the alias to look up",
                         "in": "path",
                         "name": "namespace",
                         "required": true,
                         "type": "string"
                     },
-		    {
+                    {
                         "description": "Source name of the alias to look up",
                         "in": "path",
                         "name": "source",
                         "required": true,
                         "type": "string"
-		    },
-		    {
+                    },
+                    {
                         "description": "Alias of the alias to look up",
                         "in": "path",
                         "name": "alias",
                         "required": true,
                         "type": "string"
-		    }
-		],
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1698,8 +1698,10 @@
                         "description": "Server side error"
                     }
                 },
-		"tags": ["namespaces"],
-                "summary": "Returns the schema associated with this namespace, source, alias."
+                "summary": "Returns the schema associated with this namespace, source, alias.",
+                "tags": [
+                    "namespaces"
+                ]
             }
         },
         "/v1/notes": {
