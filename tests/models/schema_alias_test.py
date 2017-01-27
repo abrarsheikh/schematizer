@@ -19,6 +19,7 @@ from __future__ import unicode_literals
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_alias import SchemaAlias
 from schematizer_testing import asserts
 from schematizer_testing import factories
@@ -97,3 +98,60 @@ class TestSchemaAliasConstraints(DBTestCase):
 
         with pytest.raises(IntegrityError):
             factories.create_schema_alias(biz_schema.id, alias)
+
+
+class TestSchemaAliasNSSrcAlias(DBTestCase):
+
+    @pytest.fixture(autouse=True)
+    def setup(self, yelp_namespace, biz_source, biz_schema):
+        self.namespace_name = yelp_namespace.name
+        self.source_name = biz_source.name
+        self.alias = 'test_alias'
+        self.schema_alias = factories.create_schema_alias(
+            biz_schema.id,
+            self.alias,
+        )
+
+    def test_missing_ns(self):
+        not_namespace_name = 'foo'
+        assert not_namespace_name != self.namespace_name
+
+        with pytest.raises(EntityNotFoundError):
+            SchemaAlias.get_by_ns_src_alias(
+                not_namespace_name,
+                self.source_name,
+                self.alias
+            )
+
+    def test_missing_source(self):
+        not_source_name = 'bar'
+        assert not_source_name != self.source_name
+
+        with pytest.raises(EntityNotFoundError):
+            SchemaAlias.get_by_ns_src_alias(
+                self.namespace_name,
+                not_source_name,
+                self.alias
+            )
+
+    def test_missing_alias(self):
+        not_alias = 'baz'
+        assert not_alias != self.alias
+
+        with pytest.raises(EntityNotFoundError):
+            SchemaAlias.get_by_ns_src_alias(
+                self.namespace_name,
+                self.source_name,
+                not_alias
+            )
+
+    def test_happy_case(self):
+        actual = SchemaAlias.get_by_ns_src_alias(
+            self.namespace_name,
+            self.source_name,
+            self.alias
+        )
+
+        asserts.assert_equal_schema_alias(
+            self.schema_alias,
+            actual)

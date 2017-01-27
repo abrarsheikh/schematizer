@@ -22,9 +22,15 @@ from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import UniqueConstraint
+from sqlalchemy.orm import relationship
 
+from schematizer.models.avro_schema import AvroSchema
 from schematizer.models.base_model import BaseModel
 from schematizer.models.database import Base
+from schematizer.models.database import session
+from schematizer.models.exceptions import EntityNotFoundError
+from schematizer.models.namespace import Namespace
+from schematizer.models.source import Source
 
 
 class SchemaAlias(Base, BaseModel):
@@ -47,6 +53,7 @@ class SchemaAlias(Base, BaseModel):
     alias = Column(String, nullable=False)
 
     schema_id = Column(Integer, ForeignKey('avro_schema.id'), nullable=False)
+    schema = relationship(AvroSchema, uselist=False)
 
     # Timestamp when the entry is created
     created_at = Column(Integer, nullable=False, default=func.unix_timestamp())
@@ -58,3 +65,29 @@ class SchemaAlias(Base, BaseModel):
         default=func.unix_timestamp(),
         onupdate=func.unix_timestamp()
     )
+
+    @classmethod
+    def get_by_ns_src_alias(cls, namespace_name, source_name, alias):
+        schema_alias = session.query(
+            SchemaAlias
+        ).join(
+            Source
+        ).join(
+            Namespace
+        ).filter(
+            Namespace.name == namespace_name,
+            Source.name == source_name,
+            SchemaAlias.alias == alias
+        ).one_or_none()
+
+        if schema_alias:
+            return schema_alias
+
+        raise EntityNotFoundError(
+            entity_desc='{} namespace `{}`, source `{}`, alias `{}`'.format(
+                cls.__name__,
+                namespace_name,
+                source_name,
+                alias,
+            )
+        )

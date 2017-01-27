@@ -1651,6 +1651,34 @@
                 ]
             }
         },
+        "/v1/namespaces/{namespace}/sources/{source}/aliases/{alias}/schema": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "description": "",
+                "operationId": "get_schema_from_alias",
+                "parameters": [],
+                "produces": [
+                    "application/json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/Schema"
+                        }
+                    },
+                    "404": {
+                        "description": "Entity not found"
+                    },
+                    "500": {
+                        "description": "Server side error"
+                    }
+                },
+                "summary": "Returns the schema associated with this namespace, source, alias."
+            }
+        },
         "/v1/notes": {
             "post": {
                 "consumes": [
