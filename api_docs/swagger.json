@@ -485,6 +485,23 @@
             ],
             "type": "object"
         },
+        "RegisterSchemaAliasRequest": {
+            "properties": {
+                "alias": {
+                    "description": "The name of the alias you want to associate with the schema",
+                    "type": "string"
+                },
+                "schema_id": {
+                    "description": "The original schema ID",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "schema_id",
+                "alias"
+            ],
+            "type": "object"
+        },
         "RegisterSchemaFromMySqlRequest": {
             "properties": {
                 "alter_table_stmt": {
@@ -562,23 +579,6 @@
                 "source",
                 "source_owner_email",
                 "contains_pii"
-            ],
-            "type": "object"
-        },
-        "RegisterSchemaAliasRequest": {
-            "properties": {
-                "schema_id": {
-                    "description": "The original schema ID",
-                    "type": "integer"
-                },
-                "alias": {
-                    "description": "The name of the alias you want to associate with the schema",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "schema_id",
-                "alias"
             ],
             "type": "object"
         },
