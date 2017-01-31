@@ -388,6 +388,10 @@ class TestSchemaRepository(DBTestCase):
         assert 1 == len(actual)
         asserts.assert_equal_topic(topic, actual[0])
 
+    def test_get_source_id_by_topic(self, source, topic):
+        actual_source_id = schema_repo.get_source_id_by_topic_id(topic.id)
+        assert source.id == actual_source_id
+
     def test_get_schema_elements_with_no_schema(self):
         actual = schema_repo.get_schema_elements_by_schema_id(1)
         assert 0 == len(actual)
@@ -496,6 +500,120 @@ class TestSchemaRepository(DBTestCase):
         assert expected.batch_size == actual.batch_size
         assert expected.priority == actual.priority
         assert expected.filter_condition == actual.filter_condition
+
+
+class TestRegisterSchemaAlias(DBTestCase):
+
+    @property
+    def schema_name(self):
+        return 'foo_schema'
+
+    @property
+    def namespace_name(self):
+        return 'foo_namespace'
+
+    @property
+    def source_name(self):
+        return 'foo_source'
+
+    @property
+    def some_datetime(self):
+        return datetime.datetime(2014, 8, 11, 19, 23, 5, 254)
+
+    @property
+    def schema_json(self):
+        return {
+            "name": self.schema_name,
+            "namespace": self.namespace_name,
+            "type": "record",
+            "fields": [{"name": "bar", "type": "int", "doc": "bar"}],
+            "doc": "table foo"
+        }
+
+    @property
+    def schema_two_json(self):
+        return {
+            "name": self.schema_name,
+            "namespace": self.namespace_name,
+            "type": "record",
+            "fields": [{"name": "bar", "type": "float", "doc": "bazz"}],
+            "doc": "table baz"
+        }
+
+    def _build_elements(self, json):
+        base_key = "{}.{}".format(json['namespace'], json['name'])
+        avro_schema_elements = [
+            models.AvroSchemaElement(
+                key=base_key,
+                element_type="record",
+                doc=json['doc']
+            )
+        ]
+        for field in json['fields']:
+            avro_schema_elements.append(
+                models.AvroSchemaElement(
+                    key=models.AvroSchemaElement.compose_key(
+                        base_key,
+                        field['name']
+                    ),
+                    element_type='field',
+                    doc=field.get('doc')
+                )
+            )
+        return avro_schema_elements
+
+    @property
+    def schema_elements(self):
+        return self._build_elements(self.schema_json)
+
+    @property
+    def schema_two_elements(self):
+        return self._build_elements(self.schema_two_json)
+
+    @pytest.fixture
+    def topic(self):
+        return factories.create_topic(
+            topic_name='topic_one',
+            namespace_name=self.namespace_name,
+            source_name=self.source_name,
+            created_at=self.some_datetime + datetime.timedelta(seconds=1)
+        )
+
+    @pytest.fixture
+    def schema_one(self, topic):
+        return factories.create_avro_schema(
+            schema_json=self.schema_json,
+            schema_elements=self.schema_elements,
+            topic_name=topic.name,
+            namespace=self.namespace_name,
+            created_at=self.some_datetime + datetime.timedelta(seconds=3)
+        )
+
+    @pytest.fixture
+    def schema_two(self, topic):
+        return factories.create_avro_schema(
+            schema_json=self.schema_two_json,
+            schema_elements=self.schema_two_elements,
+            topic_name=topic.name,
+            namespace=self.namespace_name,
+            created_at=self.some_datetime + datetime.timedelta(seconds=3)
+        )
+
+    def test_happy_case(self, schema_one):
+        alias = 'bar'
+        created_alias = schema_repo.register_schema_alias(schema_one.id, alias)
+        assert created_alias.schema_id == schema_one.id
+        assert created_alias.alias == alias
+
+    def test_invalid_schema_id(self):
+        with pytest.raises(EntityNotFoundError):
+            schema_repo.register_schema_alias(666, 'my_alias')
+
+    def test_alias_already_registered(self, schema_one, schema_two):
+        schema_repo.register_schema_alias(schema_one.id, 'bar_v2')
+        with pytest.raises(Exception) as ex:
+            schema_repo.register_schema_alias(schema_two.id, 'bar_v2')
+            assert isinstance(ex, IntegrityError)
 
 
 class TestRegisterSchema(DBTestCase):

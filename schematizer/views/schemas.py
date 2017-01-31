@@ -18,6 +18,7 @@ from __future__ import unicode_literals
 
 import simplejson
 from pyramid.view import view_config
+from sqlalchemy.exc import IntegrityError
 
 from schematizer.api.decorators import log_api
 from schematizer.api.decorators import transform_api_response
@@ -103,6 +104,45 @@ def register_schema(request):
         base_schema_id=request.json_body.get('base_schema_id'),
         docs_required=docs_required
     )
+
+
+@view_config(
+    route_name='api.v1.register_schema_aliases',
+    request_method='POST',
+    renderer='json'
+)
+@transform_api_response()
+@log_api()
+def register_schema_alias(request):
+    try:
+        schema_id = request.json_body['schema_id']
+    except simplejson.JSONDecodeError as e:
+        raise exceptions_v1.unprocessable_entity_exception(
+            'Error "{error}" encountered decoding JSON'.format(
+                error=str(e)
+            )
+        )
+
+    alias = request.json_body['alias']
+    try:
+        return schema_repository.register_schema_alias(
+            schema_id=schema_id,
+            alias=alias
+        )
+    except EntityNotFoundError as enf:
+        raise exceptions_v1.entity_not_found_exception(
+            'Error "{er}" encountered. Schema ID "{id}" not recognized'.format(
+                er=str(enf),
+                id=schema_id
+            )
+        )
+    except IntegrityError as ie:
+        raise exceptions_v1.invalid_request_exception(
+            'Error "{er}" encountered. Alias "{al}" already registered'.format(
+                er=str(ie),
+                al=alias
+            )
+        )
 
 
 @view_config(

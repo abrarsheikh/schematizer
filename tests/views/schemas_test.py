@@ -382,6 +382,80 @@ class TestRegisterSchema(RegisterSchemaTestBase):
         assert schema_with_meta_attr == expected
 
 
+class TestRegisterSchemaAlias(RegisterSchemaTestBase):
+
+    @property
+    def avro_schema(self):
+        return {"type": "map", "values": "int"}
+
+    @pytest.fixture
+    def request_alias_json(self):
+        return {
+            "schema_id": 1,
+            "alias": 'foo'
+        }
+
+    @pytest.fixture
+    def request_json(self):
+        return {
+            "schema": simplejson.dumps(self.avro_schema),
+            "namespace": 'foo',
+            "source": 'bar',
+            "source_owner_email": 'test@example.com',
+            "contains_pii": False,
+            "cluster_type": 'example_cluster_type'
+        }
+
+    def test_invalid_schema_id(self, mock_request, request_alias_json):
+        mock_request.json_body = request_alias_json
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception):
+            schema_views.register_schema_alias(mock_request)
+
+    def test_happy_case(self, mock_request, request_json):
+        mock_request.json_body = request_json
+        registered_schema = schema_views.register_schema(mock_request)
+        alias = "baz"
+        mock_request.json_body = {
+            "schema_id": registered_schema['schema_id'],
+            "alias": alias
+        }
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias.schema_id == registered_schema['schema_id']
+        assert registered_alias.alias == alias
+
+    def test_alias_already_registered(self, mock_request, request_json):
+        mock_request.json_body = request_json
+        registered_schema = schema_views.register_schema(mock_request)
+        alias = "baz"
+        mock_request.json_body = {
+            "schema_id": registered_schema['schema_id'],
+            "alias": alias
+        }
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias.schema_id == registered_schema['schema_id']
+        assert registered_alias.alias == alias
+
+        new_avro_schema = {"type": "map", "values": "string"}
+        new_schema = {
+            "schema": simplejson.dumps(new_avro_schema),
+            "namespace": 'foo',
+            "source": 'bar',
+            "source_owner_email": 'test@example.com',
+            "contains_pii": False,
+            "cluster_type": 'example_cluster_type'
+        }
+        mock_request.json_body = new_schema
+        registered_schema = schema_views.register_schema(mock_request)
+        mock_request.json_body = {
+            "schema_id": registered_schema['schema_id'],
+            "alias": alias
+        }
+        expected_exception = self.get_http_exception(400)
+        with pytest.raises(expected_exception):
+            schema_views.register_schema_alias(mock_request)
+
+
 class TestRegisterSchemaFromMySQL(RegisterSchemaTestBase):
 
     @property

@@ -28,6 +28,7 @@ from schematizer import models
 from schematizer.config import log
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
+from schematizer.logic.validators import verify_entity_exists
 from schematizer.models.database import session
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_meta_attribute_mapping import (
@@ -190,6 +191,40 @@ def register_avro_schema_from_avro_json(
         topic_id=most_recent_topic.id,
         status=status,
         base_schema_id=base_schema_id
+    )
+
+
+def register_schema_alias(schema_id, alias):
+    """Add an alias to a registered schema.
+
+    Args:
+        schema_id (int): The schema id to associate the alias with
+        alias (string): The name of the alias
+
+    Returns:
+        :class:models.schema_alias.SchemaAlias:
+            the newly created object.
+
+    Raises:
+        :class:schematizer.models.exceptions.EntityNotFoundError: If the given
+            schema id is invalid.
+    """
+    verify_entity_exists(session, models.AvroSchema, schema_id)
+
+    returned_schema = session.query(
+        models.AvroSchema
+    ).filter(
+        models.AvroSchema.id == schema_id
+    ).first()
+
+    topic_id = returned_schema.topic_id
+    source_id = get_source_id_by_topic_id(topic_id)
+
+    return models.SchemaAlias.create(
+        session,
+        source_id=source_id,
+        schema_id=schema_id,
+        alias=alias
     )
 
 
@@ -653,6 +688,15 @@ def get_topics_by_source_id(source_id):
     ).order_by(
         models.Topic.id
     ).all()
+
+
+def get_source_id_by_topic_id(topic_id):
+    topic = session.query(
+        models.Topic
+    ).filter(
+        models.Topic.id == topic_id
+    ).first()
+    return topic.source_id
 
 
 def get_latest_topic_of_source_id(source_id):

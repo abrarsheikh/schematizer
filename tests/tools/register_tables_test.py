@@ -58,7 +58,7 @@ class TestRegisterTables(DBTestCase):
         ))
         return local.strpath
 
-    def test_register_all_schematizer_tables(self, simple_topology_file):
+    def foo_test_register_all_schematizer_tables(self, simple_topology_file):
         parsed_args = Namespace(
             cluster_name=self.schematizer_cluster,
             config_file=simple_topology_file,
