@@ -19,6 +19,7 @@ from __future__ import unicode_literals
 import pytest
 
 from schematizer.views import namespaces as namespace_views
+from schematizer_testing import factories
 from tests.views.api_test_base import ApiTestBase
 
 
@@ -88,4 +89,79 @@ class TestListRefreshesByNamespace(ApiTestBase):
         mock_request.matchdict = {'namespace': yelp_namespace.name}
         actual = namespace_views.list_refreshes_by_namespace(mock_request)
         expected = [self.get_expected_src_refresh_resp(biz_src_refresh.id)]
+        assert actual == expected
+
+
+class TestGetSchemaFromAlias(ApiTestBase):
+
+    def test_missing_namespace(self, mock_request):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception) as e:
+            mock_request.matchdict = {
+                'namespace': 'foo',
+                'source': 'bar',
+                'alias': 'baz',
+            }
+            namespace_views.get_schema_from_alias(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == (
+            "SchemaAlias namespace `foo`, "
+            "source `bar`, alias `baz` not found."
+        )
+
+    def test_missing_source(self, mock_request, yelp_namespace):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception) as e:
+            mock_request.matchdict = {
+                'namespace': yelp_namespace.name,
+                'source': 'bar',
+                'alias': 'baz',
+            }
+            namespace_views.get_schema_from_alias(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == (
+            "SchemaAlias namespace `{}`, "
+            "source `bar`, alias `baz` not found.".format(
+                yelp_namespace.name,
+            )
+        )
+
+    def test_missing_alias(self, mock_request, yelp_namespace, biz_source):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception) as e:
+            mock_request.matchdict = {
+                'namespace': yelp_namespace.name,
+                'source': biz_source.name,
+                'alias': 'baz',
+            }
+            namespace_views.get_schema_from_alias(mock_request)
+
+        assert e.value.code == expected_exception.code
+        assert str(e.value) == (
+            "SchemaAlias namespace `{}`, "
+            "source `{}`, alias `baz` not found.".format(
+                biz_source.namespace.name,
+                biz_source.name,
+            )
+        )
+
+    def test_happy_case(
+        self,
+        mock_request,
+        yelp_namespace,
+        biz_source,
+        biz_schema
+    ):
+        schema_alias = 'baz'
+        factories.create_schema_alias(biz_schema.id, schema_alias)
+        mock_request.matchdict = {
+            'namespace': yelp_namespace.name,
+            'source': biz_source.name,
+            'alias': schema_alias,
+        }
+
+        actual = namespace_views.get_schema_from_alias(mock_request)
+        expected = self.get_expected_schema_resp(biz_schema.id)
         assert actual == expected

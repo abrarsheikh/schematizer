@@ -25,6 +25,7 @@ from schematizer.api.responses import responses_v1
 from schematizer.logic import schema_repository
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.namespace import Namespace
+from schematizer.models.schema_alias import SchemaAlias
 
 
 @view_config(
@@ -74,3 +75,26 @@ def list_refreshes_by_namespace(request):
         refreshes += schema_repository.list_refreshes_by_source_id(source.id)
     return [responses_v1.get_refresh_response_from_refresh(refresh)
             for refresh in refreshes]
+
+
+@view_config(
+    route_name='api.v1.get_schema_from_alias',
+    request_method='GET',
+    renderer='json'
+)
+@transform_api_response()
+def get_schema_from_alias(request):
+    namespace_name = request.matchdict.get('namespace')
+    source_name = request.matchdict.get('source')
+    alias = request.matchdict.get('alias')
+
+    try:
+        schema = SchemaAlias.get_by_ns_src_alias(
+            namespace_name,
+            source_name,
+            alias,
+        ).schema
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
+
+    return responses_v1.get_schema_response_from_avro_schema(schema)

@@ -228,6 +228,29 @@
                 }
             ],
             "path": "/v1/namespaces/{namespace}/meta_attr_mappings"
+        },
+        {
+            "operations": [
+                {
+                    "authorizations": {},
+                    "method": "GET",
+                    "nickname": "get_schema_from_alias",
+                    "parameters": [],
+                    "responseMessages": [
+                        {
+                            "code": 500,
+                            "message": "Server side error"
+                        },
+                        {
+                            "code": 404,
+                            "message": "Entity not found"
+                        }
+                    ],
+                    "summary": "Returns the schema associated with this namespace, source, alias.",
+                    "type": "Schema"
+                }
+            ],
+            "path": "/v1/namespaces/{namespace}/sources/{source}/aliases/{alias}/schema"
         }
     ],
     "basePath": "http://169.254.255.254:20912",
@@ -270,6 +293,41 @@
                 },
                 "updated_at": {
                     "description": "When this namespace is last updated",
+                    "format": "date-time",
+                    "type": "string"
+                }
+            }
+        },
+        "Note": {
+            "id": "Note",
+            "properties": {
+                "created_at": {
+                    "description": "When this note is created",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "The id of the note",
+                    "type": "integer"
+                },
+                "last_updated_by": {
+                    "description": "The email of the user who edited the note",
+                    "type": "string"
+                },
+                "note": {
+                    "description": "The text of the note itself",
+                    "type": "string"
+                },
+                "reference_id": {
+                    "description": "The id of the item that this note is for",
+                    "type": "integer"
+                },
+                "reference_type": {
+                    "description": "The type of item that this note is for ('schema', or 'schema_element')",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "When this note is last updated",
                     "format": "date-time",
                     "type": "string"
                 }
@@ -345,6 +403,64 @@
                 "meta_attribute_schema_id"
             ]
         },
+        "Schema": {
+            "id": "Schema",
+            "properties": {
+                "base_schema_id": {
+                    "description": "The original Avro schema that this schema is transformed from",
+                    "type": "integer"
+                },
+                "created_at": {
+                    "description": "When this schema is created",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "note": {
+                    "$ref": "Note",
+                    "description": "A user defined note for the schema that is used in the documentation tool. Used to store any relevant information about the schema that can be useful to reference."
+                },
+                "primary_keys": {
+                    "description": "List of primary key names.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "required_meta_attr_schema_ids": {
+                    "description": "List of MetaAttribute schema IDs required for this schema.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array"
+                },
+                "schema": {
+                    "description": "Json formatted avro schema string.",
+                    "type": "string"
+                },
+                "schema_id": {
+                    "description": "Avro schema ID",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "Schema status: RW (read/write), R (read-only), Disabled. `Read` status means this schema can be used to deserialize messages, and `Write` status means this schema can be used to serialize messages. Disabled schemas cannot be used for either.",
+                    "enum": [
+                        "RW",
+                        "R",
+                        "Disabled"
+                    ],
+                    "type": "string"
+                },
+                "topic": {
+                    "$ref": "Topic",
+                    "description": "Topic that this schema is associated to"
+                },
+                "updated_at": {
+                    "description": "When this schema is last updated",
+                    "format": "date-time",
+                    "type": "string"
+                }
+            }
+        },
         "Source": {
             "id": "Source",
             "properties": {
@@ -375,6 +491,44 @@
                 },
                 "updated_at": {
                     "description": "When this source is last updated",
+                    "format": "date-time",
+                    "type": "string"
+                }
+            }
+        },
+        "Topic": {
+            "id": "Topic",
+            "properties": {
+                "contains_pii": {
+                    "description": "Whether the messages in this topic contain PII.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "description": "When this topic is created",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "The Kafka topic name.",
+                    "type": "string"
+                },
+                "primary_keys": {
+                    "description": "List of primary key names.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "source": {
+                    "$ref": "Source",
+                    "description": "Source of the Avro schema."
+                },
+                "topic_id": {
+                    "description": "Topic ID",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "description": "When this topic is last updated",
                     "format": "date-time",
                     "type": "string"
                 }
