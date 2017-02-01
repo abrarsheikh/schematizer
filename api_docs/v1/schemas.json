@@ -288,20 +288,16 @@
                     ],
                     "responseMessages": [
                         {
-                            "code": 200,
-                            "message": "Success"
+                            "code": 400,
+                            "message": "Alias already registered to another schema id with same namespace and source"
                         },
                         {
                             "code": 404,
                             "message": "Invalid request, schema id doesn't exist"
-                        },
-                        {
-                            "code": 422,
-                            "message": "Alias already registered to another schema id with same namespace and source"
                         }
                     ],
                     "summary": "Register an alias to an existing schema.",
-                    "type": "Schema"
+                    "type": "RegisterSchemaAliasRequest"
                 }
             ],
             "path": "/v1/schemas/{schema_id}/aliases"
@@ -419,14 +415,9 @@
                 "alias": {
                     "description": "The name of the alias you want to associate with the schema",
                     "type": "string"
-                },
-                "schema_id": {
-                    "description": "The original schema ID",
-                    "type": "integer"
                 }
             },
             "required": [
-                "schema_id",
                 "alias"
             ]
         },

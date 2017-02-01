@@ -86,6 +86,17 @@ def get_schema_response_from_avro_schema(avro_schema):
     return response
 
 
+def get_schema_alias_from_alias_object(schema_alias):
+    response = {
+        'source_id': schema_alias.source_id,
+        'alias': schema_alias.alias,
+        'schema_id': schema_alias.schema_id,
+        'created_at': _format_timestamp(schema_alias.created_at),
+        'updated_at': _format_timestamp(schema_alias.updated_at)
+    }
+    return response
+
+
 def get_note_response_from_note(note):
     if note is not None:
         response = {

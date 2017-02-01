@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import simplejson
+from MySQLdb import IntegrityError as IE
 from pyramid.view import view_config
 from sqlalchemy.exc import IntegrityError
 
@@ -115,7 +116,8 @@ def register_schema(request):
 @log_api()
 def register_schema_alias(request):
     try:
-        schema_id = request.json_body['schema_id']
+        schema_id = int(request.matchdict.get('schema_id'))
+        alias = request.json_body['alias']
     except simplejson.JSONDecodeError as e:
         raise exceptions_v1.unprocessable_entity_exception(
             'Error "{error}" encountered decoding JSON'.format(
@@ -123,11 +125,13 @@ def register_schema_alias(request):
             )
         )
 
-    alias = request.json_body['alias']
     try:
-        return schema_repository.register_schema_alias(
+        schema_alias_object = schema_repository.register_schema_alias(
             schema_id=schema_id,
             alias=alias
+        )
+        return responses_v1.get_schema_alias_from_alias_object(
+            schema_alias_object
         )
     except EntityNotFoundError as enf:
         raise exceptions_v1.entity_not_found_exception(
@@ -136,7 +140,7 @@ def register_schema_alias(request):
                 id=schema_id
             )
         )
-    except IntegrityError as ie:
+    except (IntegrityError, IE) as ie:
         raise exceptions_v1.invalid_request_exception(
             'Error "{er}" encountered. Alias "{al}" already registered'.format(
                 er=str(ie),

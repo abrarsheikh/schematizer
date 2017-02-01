@@ -391,7 +391,6 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
     @pytest.fixture
     def request_alias_json(self):
         return {
-            "schema_id": 1,
             "alias": 'foo'
         }
 
@@ -408,6 +407,7 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
 
     def test_invalid_schema_id(self, mock_request, request_alias_json):
         mock_request.json_body = request_alias_json
+        mock_request.matchdict = {'schema_id': str(9824)}
         expected_exception = self.get_http_exception(404)
         with pytest.raises(expected_exception):
             schema_views.register_schema_alias(mock_request)
@@ -417,24 +417,28 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
-            "schema_id": registered_schema['schema_id'],
             "alias": alias
         }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
+        }
         registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias.schema_id == registered_schema['schema_id']
-        assert registered_alias.alias == alias
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
 
     def test_alias_already_registered(self, mock_request, request_json):
         mock_request.json_body = request_json
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
-            "schema_id": registered_schema['schema_id'],
             "alias": alias
         }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
+        }
         registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias.schema_id == registered_schema['schema_id']
-        assert registered_alias.alias == alias
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
 
         new_avro_schema = {"type": "map", "values": "string"}
         new_schema = {
@@ -448,8 +452,10 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         mock_request.json_body = new_schema
         registered_schema = schema_views.register_schema(mock_request)
         mock_request.json_body = {
-            "schema_id": registered_schema['schema_id'],
             "alias": alias
+        }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
         }
         expected_exception = self.get_http_exception(400)
         with pytest.raises(expected_exception):
