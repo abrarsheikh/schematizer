@@ -88,6 +88,11 @@ def routes(config):
         request_method="GET"
     )
     config.add_route(
+        'api.v1.get_schema_from_alias',
+        '/v1/namespaces/{namespace}/sources/{source}/aliases/{alias}/schema',
+        request_method="GET"
+    )
+    config.add_route(
         'api.v1.list_sources',
         '/v1/sources'
     )

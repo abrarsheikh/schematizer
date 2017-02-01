@@ -1674,7 +1674,7 @@
                         "type": "string"
                     },
                     {
-                        "description": "Alias of the alias to look up",
+                        "description": "Name of the alias to look up",
                         "in": "path",
                         "name": "alias",
                         "required": true,

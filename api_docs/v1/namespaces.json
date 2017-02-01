@@ -495,6 +495,44 @@
                     "type": "string"
                 }
             }
+        },
+	        "Topic": {
+            "id": "Topic",
+            "properties": {
+                "contains_pii": {
+                    "description": "Whether the messages in this topic contain PII.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "description": "When this topic is created",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "The Kafka topic name.",
+                    "type": "string"
+                },
+                "primary_keys": {
+                    "description": "List of primary key names.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "source": {
+                    "$ref": "Source",
+                    "description": "Source of the Avro schema."
+                },
+                "topic_id": {
+                    "description": "Topic ID",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "description": "When this topic is last updated",
+                    "format": "date-time",
+                    "type": "string"
+                }
+            }
         }
     },
     "produces": [

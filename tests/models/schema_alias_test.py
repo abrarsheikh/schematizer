@@ -154,4 +154,5 @@ class TestSchemaAliasNSSrcAlias(DBTestCase):
 
         asserts.assert_equal_schema_alias(
             self.schema_alias,
-            actual)
+            actual
+        )
