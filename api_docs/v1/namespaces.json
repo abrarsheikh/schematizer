@@ -496,7 +496,7 @@
                 }
             }
         },
-	        "Topic": {
+        "Topic": {
             "id": "Topic",
             "properties": {
                 "contains_pii": {
