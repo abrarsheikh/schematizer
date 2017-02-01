@@ -208,6 +208,8 @@ def register_schema_alias(schema_id, alias):
     Raises:
         :class:schematizer.models.exceptions.EntityNotFoundError: If the given
             schema id is invalid.
+        IntegrityError: If the given (source_id + alias) was already registered
+            to another schema_id.
     """
     verify_entity_exists(session, models.AvroSchema, schema_id)
 
@@ -219,6 +221,18 @@ def register_schema_alias(schema_id, alias):
 
     topic_id = returned_schema.topic_id
     source_id = get_source_id_by_topic_id(topic_id)
+
+    schema_alias = session.query(
+        models.SchemaAlias
+    ).filter(
+        models.SchemaAlias.source_id == source_id,
+        models.SchemaAlias.alias == alias
+    ).first()
+
+    if schema_alias:
+        if schema_alias.schema_id != schema_id:
+            raise IntegrityError
+        return schema_alias
 
     return models.SchemaAlias.create(
         session,

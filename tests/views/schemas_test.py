@@ -426,6 +426,68 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['schema_id'] == registered_schema['schema_id']
         assert registered_alias['alias'] == alias
 
+    def test_idempotency_while_registring_alias(
+        self,
+        mock_request,
+        request_json
+    ):
+        mock_request.json_body = request_json
+        registered_schema = schema_views.register_schema(mock_request)
+        alias = "baz"
+        mock_request.json_body = {
+            "alias": alias
+        }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
+        }
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
+
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
+
+    def test_register_same_alias_different_schema(
+        self,
+        mock_request,
+        request_json
+    ):
+        mock_request.json_body = request_json
+        registered_schema = schema_views.register_schema(mock_request)
+        alias = "baz"
+        mock_request.json_body = {
+            "alias": alias
+        }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
+        }
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
+
+        new_avro_schema = {"type": "map", "values": "string"}
+        new_schema = {
+            "schema": simplejson.dumps(new_avro_schema),
+            "namespace": 'foo',
+            "source": 'new_bar',
+            "source_owner_email": 'test@example.com',
+            "contains_pii": False,
+            "cluster_type": 'example_cluster_type'
+        }
+        mock_request.json_body = new_schema
+        registered_schema = schema_views.register_schema(mock_request)
+        alias = "baz"
+        mock_request.json_body = {
+            "alias": alias
+        }
+        mock_request.matchdict = {
+            'schema_id': str(registered_schema['schema_id'])
+        }
+        registered_alias = schema_views.register_schema_alias(mock_request)
+        assert registered_alias['schema_id'] == registered_schema['schema_id']
+        assert registered_alias['alias'] == alias
+
     def test_alias_already_registered(self, mock_request, request_json):
         mock_request.json_body = request_json
         registered_schema = schema_views.register_schema(mock_request)
