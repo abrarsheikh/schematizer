@@ -16,9 +16,9 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import re
 import uuid
 
+import re
 import simplejson
 from sqlalchemy import desc
 from sqlalchemy import exc
@@ -28,7 +28,6 @@ from schematizer import models
 from schematizer.config import log
 from schematizer.logic import meta_attribute_mappers as meta_attr_repo
 from schematizer.logic.schema_resolution import SchemaCompatibilityValidator
-from schematizer.logic.validators import verify_entity_exists
 from schematizer.models.database import session
 from schematizer.models.exceptions import EntityNotFoundError
 from schematizer.models.schema_meta_attribute_mapping import (
@@ -211,16 +210,10 @@ def register_schema_alias(schema_id, alias):
         IntegrityError: If the given (source_id + alias) was already registered
             to another schema_id.
     """
-    verify_entity_exists(session, models.AvroSchema, schema_id)
-
-    returned_schema = session.query(
-        models.AvroSchema
-    ).filter(
-        models.AvroSchema.id == schema_id
-    ).first()
-
+    returned_schema = models.AvroSchema.get_by_id(schema_id)
     topic_id = returned_schema.topic_id
-    source_id = get_source_id_by_topic_id(topic_id)
+    topic = models.Topic.get_by_id(topic_id)
+    source_id = topic.source_id
 
     schema_alias = session.query(
         models.SchemaAlias
@@ -702,15 +695,6 @@ def get_topics_by_source_id(source_id):
     ).order_by(
         models.Topic.id
     ).all()
-
-
-def get_source_id_by_topic_id(topic_id):
-    topic = session.query(
-        models.Topic
-    ).filter(
-        models.Topic.id == topic_id
-    ).first()
-    return topic.source_id
 
 
 def get_latest_topic_of_source_id(source_id):

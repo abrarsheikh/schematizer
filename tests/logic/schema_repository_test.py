@@ -388,10 +388,6 @@ class TestSchemaRepository(DBTestCase):
         assert 1 == len(actual)
         asserts.assert_equal_topic(topic, actual[0])
 
-    def test_get_source_id_by_topic(self, source, topic):
-        actual_source_id = schema_repo.get_source_id_by_topic_id(topic.id)
-        assert source.id == actual_source_id
-
     def test_get_schema_elements_with_no_schema(self):
         actual = schema_repo.get_schema_elements_by_schema_id(1)
         assert 0 == len(actual)

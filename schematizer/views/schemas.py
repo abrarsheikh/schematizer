@@ -17,9 +17,9 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import simplejson
-from MySQLdb import IntegrityError as IE
+from MySQLdb import IntegrityError as MySQLIntegrityError
 from pyramid.view import view_config
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError as SqlAIntegrityError
 
 from schematizer.api.decorators import log_api
 from schematizer.api.decorators import transform_api_response
@@ -137,7 +137,7 @@ def register_schema_alias(request):
                 id=schema_id
             )
         )
-    except (IntegrityError, IE) as ie:
+    except (SqlAIntegrityError, MySQLIntegrityError) as ie:
         raise exceptions_v1.invalid_request_exception(
             'Error "{er}" encountered. Alias "{al}" already registered'.format(
                 er=str(ie),

@@ -405,6 +405,16 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
             "cluster_type": 'example_cluster_type'
         }
 
+    def _get_request_json(self, schema, namespace, source):
+        return {
+            "schema": simplejson.dumps(schema),
+            "namespace": namespace,
+            "source": source,
+            "source_owner_email": 'test@example.com',
+            "contains_pii": False,
+            "cluster_type": 'example_cluster_type'
+        }
+
     def test_invalid_schema_id(self, mock_request, request_alias_json):
         mock_request.json_body = request_alias_json
         mock_request.matchdict = {'schema_id': str(9824)}
@@ -412,8 +422,12 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         with pytest.raises(expected_exception):
             schema_views.register_schema_alias(mock_request)
 
-    def test_happy_case(self, mock_request, request_json):
-        mock_request.json_body = request_json
+    def test_happy_case(self, mock_request):
+        mock_request.json_body = self._get_request_json(
+            schema=self.avro_schema,
+            namespace='foo',
+            source='bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
@@ -426,12 +440,15 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['schema_id'] == registered_schema['schema_id']
         assert registered_alias['alias'] == alias
 
-    def test_idempotency_while_registring_alias(
+    def test_idempotency_while_registering_alias(
         self,
-        mock_request,
-        request_json
+        mock_request
     ):
-        mock_request.json_body = request_json
+        mock_request.json_body = self._get_request_json(
+            schema=self.avro_schema,
+            namespace='foo',
+            source='bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
@@ -448,12 +465,15 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['schema_id'] == registered_schema['schema_id']
         assert registered_alias['alias'] == alias
 
-    def test_register_same_alias_different_schema(
+    def test_register_same_alias_different_schema_and_source(
         self,
-        mock_request,
-        request_json
+        mock_request
     ):
-        mock_request.json_body = request_json
+        mock_request.json_body = self._get_request_json(
+            schema=self.avro_schema,
+            namespace='foo',
+            source='bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
@@ -467,15 +487,11 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['alias'] == alias
 
         new_avro_schema = {"type": "map", "values": "string"}
-        new_schema = {
-            "schema": simplejson.dumps(new_avro_schema),
-            "namespace": 'foo',
-            "source": 'new_bar',
-            "source_owner_email": 'test@example.com',
-            "contains_pii": False,
-            "cluster_type": 'example_cluster_type'
-        }
-        mock_request.json_body = new_schema
+        mock_request.json_body = self._get_request_json(
+            schema=new_avro_schema,
+            namespace='foo',
+            source='new_bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
@@ -488,8 +504,12 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['schema_id'] == registered_schema['schema_id']
         assert registered_alias['alias'] == alias
 
-    def test_alias_already_registered(self, mock_request, request_json):
-        mock_request.json_body = request_json
+    def test_alias_already_registered_with_source_namespace(self, mock_request):
+        mock_request.json_body = self._get_request_json(
+            schema=self.avro_schema,
+            namespace='foo',
+            source='bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         alias = "baz"
         mock_request.json_body = {
@@ -503,15 +523,11 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         assert registered_alias['alias'] == alias
 
         new_avro_schema = {"type": "map", "values": "string"}
-        new_schema = {
-            "schema": simplejson.dumps(new_avro_schema),
-            "namespace": 'foo',
-            "source": 'bar',
-            "source_owner_email": 'test@example.com',
-            "contains_pii": False,
-            "cluster_type": 'example_cluster_type'
-        }
-        mock_request.json_body = new_schema
+        mock_request.json_body = self._get_request_json(
+            schema=new_avro_schema,
+            namespace='foo',
+            source='bar'
+        )
         registered_schema = schema_views.register_schema(mock_request)
         mock_request.json_body = {
             "alias": alias
