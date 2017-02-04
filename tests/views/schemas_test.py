@@ -24,6 +24,7 @@ import simplejson
 import staticconf.testing
 
 from schematizer import models
+from schematizer.views import namespaces as namespace_views
 from schematizer.api.requests.requests_v1 import DEFAULT_KAFKA_CLUSTER_TYPE
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views
@@ -395,15 +396,16 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         }
 
     @pytest.fixture
-    def request_json(self):
+    def schema_details(self):
         return {
-            "schema": simplejson.dumps(self.avro_schema),
-            "namespace": 'foo',
-            "source": 'bar',
-            "source_owner_email": 'test@example.com',
-            "contains_pii": False,
-            "cluster_type": 'example_cluster_type'
+            'namespace_name': 'foo.namespace',
+            'source': 'bar',
+            'alias': 'test_alias'
         }
+
+    @pytest.fixture
+    def created_timestamp(self):
+        return int(time.time())
 
     def _get_request_json(self, schema, namespace, source):
         return {
@@ -422,119 +424,151 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
         with pytest.raises(expected_exception):
             schema_views.register_schema_alias(mock_request)
 
-    def test_happy_case(self, mock_request):
+    def test_happy_case(self, mock_request, created_timestamp, schema_details):
         mock_request.json_body = self._get_request_json(
             schema=self.avro_schema,
-            namespace='foo',
-            source='bar'
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source']
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        alias = "baz"
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
+        expected_schema = factories.create_avro_schema(
+            schema_json=self.avro_schema,
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source'],
+            created_at=created_timestamp
+        )
+        mock_request.json_body = {"alias": schema_details['alias']}
+        mock_request.matchdict = {'schema_id': str(expected_schema.id)}
+        schema_views.register_schema_alias(mock_request)
+        actual_schema = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=schema_details['alias']
+        ).schema
+
+        assert actual_schema == expected_schema
 
     def test_idempotency_while_registering_alias(
         self,
-        mock_request
+        mock_request,
+        schema_details,
+        created_timestamp
     ):
         mock_request.json_body = self._get_request_json(
             schema=self.avro_schema,
-            namespace='foo',
-            source='bar'
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source']
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        alias = "baz"
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
+        expected_schema = factories.create_avro_schema(
+            schema_json=self.avro_schema,
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source'],
+            created_at=created_timestamp
+        )
 
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
+        mock_request.json_body = {"alias": schema_details['alias']}
+        mock_request.matchdict = {'schema_id': str(expected_schema.id)}
+        schema_views.register_schema_alias(mock_request)
+        actual_schema = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=schema_details['alias']
+        ).schema
 
-    def test_register_same_alias_different_schema_and_source(
+        assert actual_schema == expected_schema
+
+        schema_views.register_schema_alias(mock_request)
+        actual_schema = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=schema_details['alias']
+        ).schema
+
+        assert actual_schema == expected_schema
+
+    def test_register_another_alias_for_same_schema(
         self,
-        mock_request
+        mock_request,
+        schema_details,
+        created_timestamp
     ):
         mock_request.json_body = self._get_request_json(
             schema=self.avro_schema,
-            namespace='foo',
-            source='bar'
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source']
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        alias = "baz"
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
-
-        new_avro_schema = {"type": "map", "values": "string"}
-        mock_request.json_body = self._get_request_json(
-            schema=new_avro_schema,
-            namespace='foo',
-            source='new_bar'
+        expected_schema = factories.create_avro_schema(
+            schema_json=self.avro_schema,
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source'],
+            created_at=created_timestamp
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        alias = "baz"
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
 
-    def test_alias_already_registered_with_source_namespace(self, mock_request):
+        mock_request.json_body = {"alias": schema_details['alias']}
+        mock_request.matchdict = {'schema_id': str(expected_schema.id)}
+        schema_views.register_schema_alias(mock_request)
+
+        alias_two = 'test_alias_two'
+        mock_request.json_body = {"alias": alias_two}
+        schema_views.register_schema_alias(mock_request)
+
+        actual_schema_one = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=schema_details['alias']
+        ).schema
+
+        actual_schema_two = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=alias_two
+        ).schema
+
+        assert actual_schema_one == actual_schema_two
+
+    def test_alias_already_registered_alias_with_another_source_namespace(
+        self,
+        mock_request,
+        schema_details,
+        created_timestamp
+    ):
         mock_request.json_body = self._get_request_json(
             schema=self.avro_schema,
-            namespace='foo',
-            source='bar'
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source']
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        alias = "baz"
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
-        registered_alias = schema_views.register_schema_alias(mock_request)
-        assert registered_alias['schema_id'] == registered_schema['schema_id']
-        assert registered_alias['alias'] == alias
+        expected_schema = factories.create_avro_schema(
+            schema_json=self.avro_schema,
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source'],
+            created_at=created_timestamp
+        )
+
+        mock_request.json_body = {"alias": schema_details['alias']}
+        mock_request.matchdict = {'schema_id': str(expected_schema.id)}
+        schema_views.register_schema_alias(mock_request)
+        actual_schema = models.SchemaAlias.get_by_ns_src_alias(
+            namespace_name=schema_details['namespace_name'],
+            source_name=schema_details['source'],
+            alias=schema_details['alias']
+        ).schema
+
+        assert actual_schema == expected_schema
 
         new_avro_schema = {"type": "map", "values": "string"}
         mock_request.json_body = self._get_request_json(
             schema=new_avro_schema,
-            namespace='foo',
-            source='bar'
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source']
         )
-        registered_schema = schema_views.register_schema(mock_request)
-        mock_request.json_body = {
-            "alias": alias
-        }
-        mock_request.matchdict = {
-            'schema_id': str(registered_schema['schema_id'])
-        }
+        expected_schema_two = factories.create_avro_schema(
+            schema_json=new_avro_schema,
+            namespace=schema_details['namespace_name'],
+            source=schema_details['source'],
+            created_at=created_timestamp
+        )
+
+        mock_request.json_body = {"alias": schema_details['alias']}
+        mock_request.matchdict = {'schema_id': str(expected_schema_two.id)}
         expected_exception = self.get_http_exception(400)
         with pytest.raises(expected_exception):
             schema_views.register_schema_alias(mock_request)
