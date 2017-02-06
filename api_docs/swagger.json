@@ -633,6 +633,33 @@
             },
             "type": "object"
         },
+        "SchemaAlias": {
+            "properties": {
+                "alias": {
+                    "description": "The name of the alias you want to associate with the schema",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "When this schema is created",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "schema_id": {
+                    "description": "The original schema ID",
+                    "type": "integer"
+                },
+                "source_id": {
+                    "description": "The source ID",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "description": "When this schema is last updated",
+                    "format": "date-time",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
         "SchemaElement": {
             "properties": {
                 "created_at": {
@@ -2220,7 +2247,10 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success"
+                        "description": "Success",
+                        "schema": {
+                            "$ref": "#/definitions/SchemaAlias"
+                        }
                     },
                     "400": {
                         "description": "Alias already registered to another schema id with same namespace and source"

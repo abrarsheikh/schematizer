@@ -24,7 +24,6 @@ import simplejson
 import staticconf.testing
 
 from schematizer import models
-from schematizer.views import namespaces as namespace_views
 from schematizer.api.requests.requests_v1 import DEFAULT_KAFKA_CLUSTER_TYPE
 from schematizer.helpers.formatting import _format_timestamp
 from schematizer.views import schemas as schema_views

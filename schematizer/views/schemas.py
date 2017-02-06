@@ -126,10 +126,11 @@ def register_schema_alias(request):
         )
 
     try:
-        schema_repository.register_schema_alias(
+        schema_alias = schema_repository.register_schema_alias(
             schema_id=schema_id,
             alias=alias
         )
+        return responses_v1.get_schema_alias_from_alias_object(schema_alias)
     except EntityNotFoundError as enf:
         raise exceptions_v1.entity_not_found_exception(
             'Error "{er}" encountered. Schema ID "{id}" not recognized'.format(
