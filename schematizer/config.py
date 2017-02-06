@@ -170,7 +170,7 @@ def routes(config):
         '/v1/schemas/avro'
     )
     config.add_route(
-        'api.v1.register_schema_aliases',
+        'api.v1.register_schema_alias',
         '/v1/schemas/{schema_id}/aliases'
     )
     config.add_route(

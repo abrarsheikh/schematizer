@@ -108,7 +108,7 @@ def register_schema(request):
 
 
 @view_config(
-    route_name='api.v1.register_schema_aliases',
+    route_name='api.v1.register_schema_alias',
     request_method='POST',
     renderer='json'
 )
