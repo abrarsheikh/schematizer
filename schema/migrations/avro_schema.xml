@@ -70,4 +70,11 @@ under the License.
     </createIndex>
     <comment>[2016-08-30] Add index on alias column.</comment>
   </changeSet>
+  <changeSet author="tajinder" id="DATAPIPE-2320-1486676000">
+    <preConditions onFail="MARK_RAN" onSqlOutput="TEST">
+        <columnExists tableName="avro_schema" columnName="alias"/>
+    </preConditions>
+    <dropColumn columnName="alias" tableName="avro_schema"/>
+    <comment>[2017-02-09] Drop 'alias' column in favor of the new table 'schema_alias' to support schema alias </comment>
+  </changeSet>
 </databaseChangeLog>
