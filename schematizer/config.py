@@ -83,7 +83,7 @@ def routes(config):
         request_method="DELETE"
     )
     config.add_route(
-        'api.v1.get_schema_and_alias_from_namespace',
+        'api.v1.get_schema_and_alias_from_namespace_name',
         'v1/namespaces/{namespace_name}/aliases',
         request_method="GET"
     )

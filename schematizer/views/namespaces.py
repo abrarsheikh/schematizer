@@ -101,7 +101,7 @@ def get_schema_from_alias(request):
 
 
 @view_config(
-    route_name='api.v1.get_schema_and_alias_from_namespace',
+    route_name='api.v1.get_schema_and_alias_from_namespace_name',
     request_method='GET',
     renderer='json'
 )
@@ -121,4 +121,5 @@ def get_schema_and_alias_from_namespace_name(request):
             source_name,
             alias
         ) for schema_id, source_name, alias in responses
-    ]
+        ]
+
