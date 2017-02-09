@@ -212,8 +212,7 @@ def register_schema_alias(schema_id, alias):
     """
     returned_schema = models.AvroSchema.get_by_id(schema_id)
     topic_id = returned_schema.topic_id
-    topic = models.Topic.get_by_id(topic_id)
-    source_id = topic.source_id
+    source_id = models.Topic.get_by_id(topic_id).source_id
 
     schema_alias = session.query(
         models.SchemaAlias
@@ -222,17 +221,21 @@ def register_schema_alias(schema_id, alias):
         models.SchemaAlias.alias == alias
     ).first()
 
+    source = models.Source.get_by_id(source_id)
+    source_name = source.name
+    namespace_name = models.Namespace.get_by_id(source.namespace_id).name
+
     if schema_alias:
         if schema_alias.schema_id != schema_id:
             raise IntegrityError
-        return schema_alias
+        return schema_alias, source_name, namespace_name
 
     return models.SchemaAlias.create(
         session,
         source_id=source_id,
         schema_id=schema_id,
         alias=alias
-    )
+    ), source_name, namespace_name
 
 
 def _strip_if_not_none(original_str):
@@ -685,6 +688,27 @@ def get_schemas_by_topic_id(topic_id, include_disabled=False):
             models.AvroSchema.status != models.AvroSchemaStatus.DISABLED
         )
     return qry.order_by(models.AvroSchema.id).all()
+
+
+def get_schema_and_alias_from_namespace(namespace_name):
+    """Get all the aliases along with their schema id's and source names
+    given a namespace name.
+    """
+    namespace_id = models.Namespace.get_by_name(namespace_name).id
+    responses = session.query(
+        models.Source
+    ).join(
+        models.SchemaAlias,
+        models.Source.id == models.SchemaAlias.source_id
+    ).filter(
+        models.Source.namespace_id == namespace_id
+    ).values(
+        models.SchemaAlias.schema_id,
+        models.Source.name,
+        models.SchemaAlias.alias
+    )
+
+    return responses
 
 
 def get_topics_by_source_id(source_id):

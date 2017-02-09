@@ -86,9 +86,15 @@ def get_schema_response_from_avro_schema(avro_schema):
     return response
 
 
-def get_schema_alias_from_alias_object(schema_alias):
+def get_schema_alias_from_alias_object(
+    schema_alias,
+    source_name,
+    namespace_name
+):
     response = {
         'source_id': schema_alias.source_id,
+        'source_name': source_name,
+        'namespace_name': namespace_name,
         'alias': schema_alias.alias,
         'schema_id': schema_alias.schema_id,
         'created_at': _format_timestamp(schema_alias.created_at),
@@ -192,4 +198,12 @@ def get_meta_attr_mapping_response(entity_type, entity_id, meta_attr_id):
     return {
         entity_type: int(entity_id),
         'meta_attribute_schema_id': meta_attr_id
+    }
+
+
+def get_schema_source_alias_response(schema_id, source_name, alias):
+    return {
+        'schema_id': schema_id,
+        'source_name': source_name,
+        'alias': alias
     }
