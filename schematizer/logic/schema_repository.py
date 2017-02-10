@@ -202,7 +202,7 @@ def register_schema_alias(schema_id, alias):
 
     Returns:
         :class:models.schema_alias.SchemaAlias:
-            the newly created object.
+            the newly created object, source_name and namespace_name.
 
     Raises:
         :class:schematizer.models.exceptions.EntityNotFoundError: If the given
