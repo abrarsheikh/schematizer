@@ -208,3 +208,4 @@ class TestGetSchemaAndAliasFromNamespace(ApiTestBase):
             assert element['source_name'] == biz_source.name
             assert element['schema_id'] == biz_schema.id
             aliases.remove(element['alias'])
+        assert not aliases
