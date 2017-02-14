@@ -177,7 +177,7 @@ class TestGetSchemaAndAliasFromNamespace(ApiTestBase):
                 mock_request
             )
 
-    def test_no_alias_for_namespace(
+    def test_no_schema_alias_in_namespace(
         self,
         mock_request,
         yelp_namespace

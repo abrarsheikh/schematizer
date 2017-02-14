@@ -121,5 +121,4 @@ def get_schema_and_alias_from_namespace_name(request):
             source_name,
             alias
         ) for schema_id, source_name, alias in responses
-        ]
-
+    ]

@@ -16,9 +16,9 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-import re
 import uuid
 
+import re
 import simplejson
 from sqlalchemy import desc
 from sqlalchemy import exc
@@ -695,7 +695,8 @@ def get_schema_and_alias_from_namespace(namespace_name):
     given a namespace name.
     """
     namespace_id = models.Namespace.get_by_name(namespace_name).id
-    responses = session.query(
+
+    return session.query(
         models.Source
     ).join(
         models.SchemaAlias,
@@ -707,8 +708,6 @@ def get_schema_and_alias_from_namespace(namespace_name):
         models.Source.name,
         models.SchemaAlias.alias
     )
-
-    return responses
 
 
 def get_topics_by_source_id(source_id):
