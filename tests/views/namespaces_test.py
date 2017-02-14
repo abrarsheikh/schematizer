@@ -165,3 +165,47 @@ class TestGetSchemaFromAlias(ApiTestBase):
         actual = namespace_views.get_schema_from_alias(mock_request)
         expected = self.get_expected_schema_resp(biz_schema.id)
         assert actual == expected
+
+
+class TestGetSchemaAndAliasFromNamespace(ApiTestBase):
+
+    def test_namespace_does_not_exist(self, mock_request):
+        expected_exception = self.get_http_exception(404)
+        with pytest.raises(expected_exception):
+            mock_request.matchdict = {'namespace_name': 'some_name'}
+            namespace_views.get_schema_and_alias_from_namespace_name(
+                mock_request
+            )
+
+    def test_no_schema_alias_in_namespace(
+        self,
+        mock_request,
+        yelp_namespace
+    ):
+        mock_request.matchdict = {'namespace_name': yelp_namespace.name}
+        response = namespace_views.get_schema_and_alias_from_namespace_name(
+            mock_request
+        )
+        assert not response
+
+    def test_happy_case(
+        self,
+        mock_request,
+        yelp_namespace,
+        biz_schema,
+        biz_source
+    ):
+        aliases = ['one', 'two', 'three']
+        for alias in aliases:
+            factories.create_schema_alias(biz_schema.id, alias)
+
+        mock_request.matchdict = {'namespace_name': yelp_namespace.name}
+        actual = namespace_views.get_schema_and_alias_from_namespace_name(
+            mock_request
+        )
+        for element in actual:
+            assert element['alias'] in aliases
+            assert element['source_name'] == biz_source.name
+            assert element['schema_id'] == biz_schema.id
+            aliases.remove(element['alias'])
+        assert not aliases

@@ -660,6 +660,28 @@
             },
             "type": "object"
         },
+        "SchemaAliasFromNamespace": {
+            "properties": {
+                "alias": {
+                    "description": "The name of the alias you want to associate with the schema",
+                    "type": "string"
+                },
+                "schema_id": {
+                    "description": "The original schema ID",
+                    "type": "integer"
+                },
+                "source_name": {
+                    "description": "The name of the source",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "schema_id",
+                "source_name",
+                "alias"
+            ],
+            "type": "object"
+        },
         "SchemaElement": {
             "properties": {
                 "created_at": {
@@ -844,7 +866,7 @@
         },
         "description": "Schematizer is REST service to register and retrieve Avro schemas, maintain Avro schema backward compatibilities, register producer and consumer of Avro schemas, and generate redshift push plans.",
         "title": "Data Pipeline Schematizer",
-        "version": "1.4.0"
+        "version": "1.5.0"
     },
     "paths": {
         "/v1/categories": {
@@ -1442,6 +1464,44 @@
                     }
                 },
                 "summary": "List all the namespaces",
+                "tags": [
+                    "namespaces"
+                ]
+            }
+        },
+        "/v1/namespaces/{namespace_name}/aliases": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "description": "",
+                "operationId": "get_schema_and_alias_from_namespace_name",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "namespace_name",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "items": {
+                                "$ref": "#/definitions/SchemaAliasFromNamespace"
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "400": {
+                        "description": "Namespace name not found"
+                    }
+                },
+                "summary": "Get schema_id, source_name and alias by specifying a namespace name",
                 "tags": [
                     "namespaces"
                 ]

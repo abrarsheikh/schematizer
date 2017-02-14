@@ -597,9 +597,15 @@ class TestRegisterSchemaAlias(DBTestCase):
 
     def test_happy_case(self, schema_one):
         alias = 'bar'
-        created_alias = schema_repo.register_schema_alias(schema_one.id, alias)
+        response = schema_repo.register_schema_alias(
+            schema_one.id,
+            alias
+        )
+        created_alias = response[0]
         assert created_alias.schema_id == schema_one.id
         assert created_alias.alias == alias
+        assert response[1] == self.source_name
+        assert response[2] == self.namespace_name
 
     def test_invalid_schema_id(self):
         with pytest.raises(EntityNotFoundError):

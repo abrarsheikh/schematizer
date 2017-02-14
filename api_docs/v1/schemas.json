@@ -277,7 +277,7 @@
                     "authorizations": {},
                     "method": "POST",
                     "nickname": "register_schema_alias",
-                    "notes": "The alias cannot be used if it's already being used with another schema with same namespace and source.",
+                    "notes": "Same alias cannot be assigned to more than one schema in the same namespace and source.",
                     "parameters": [
                         {
                             "name": "body",

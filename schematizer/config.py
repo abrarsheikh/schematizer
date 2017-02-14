@@ -83,6 +83,11 @@ def routes(config):
         request_method="DELETE"
     )
     config.add_route(
+        'api.v1.get_schema_and_alias_from_namespace_name',
+        'v1/namespaces/{namespace_name}/aliases',
+        request_method="GET"
+    )
+    config.add_route(
         'api.v1.get_namespace_meta_attribute_mappings',
         '/v1/namespaces/{namespace}/meta_attr_mappings',
         request_method="GET"

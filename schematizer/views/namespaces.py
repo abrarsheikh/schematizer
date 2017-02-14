@@ -98,3 +98,27 @@ def get_schema_from_alias(request):
         raise exceptions_v1.entity_not_found_exception(e.message)
 
     return responses_v1.get_schema_response_from_avro_schema(schema)
+
+
+@view_config(
+    route_name='api.v1.get_schema_and_alias_from_namespace_name',
+    request_method='GET',
+    renderer='json'
+)
+@transform_api_response()
+def get_schema_and_alias_from_namespace_name(request):
+    namespace_name = request.matchdict.get('namespace_name')
+    try:
+        responses = schema_repository.get_schema_and_alias_from_namespace(
+            namespace_name
+        )
+    except EntityNotFoundError as e:
+        raise exceptions_v1.entity_not_found_exception(e.message)
+
+    return [
+        responses_v1.get_schema_source_alias_response(
+            schema_id,
+            source_name,
+            alias
+        ) for schema_id, source_name, alias in responses
+    ]
