@@ -65,6 +65,8 @@ class Refresh(Base, BaseModel):
     # Represents the last known position that has been refreshed.
     offset = Column(Integer, default=0, nullable=False)
 
+    max_primary_key = Column(Integer, default=None)
+
     batch_size = Column(Integer, default=100, nullable=False)
 
     priority = Column(

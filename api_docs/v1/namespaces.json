@@ -353,6 +353,10 @@
                     "description": "This field contains the expression used to filter the records that must be refreshed. E.g. It may be a MySQL where clause if the source of the refresh is a MySQL table.",
                     "type": "string"
                 },
+                "max_primary_key": {
+                    "description": "The max primary key for refresh table",
+                    "type": "integer"
+                },
                 "namespace_name": {
                     "description": "Name of the namespace the refresh is running on.",
                     "type": "string"

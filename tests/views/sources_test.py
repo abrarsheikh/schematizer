@@ -228,6 +228,7 @@ class TestCreateRefresh(ApiTestBase):
     def request_json(self):
         return {
             'offset': 100,
+            'max_primary_key': 1000,
             'batch_size': 500,
             'priority': 80,
             'avg_rows_per_second_cap': 1000
@@ -251,6 +252,7 @@ class TestCreateRefresh(ApiTestBase):
         expected = self.get_expected_src_refresh_resp(
             actual['refresh_id'],
             offset=100,
+            max_primary_key=1000,
             batch_size=500,
             priority=80,
             avg_rows_per_second_cap=1000
@@ -268,6 +270,7 @@ class TestCreateRefresh(ApiTestBase):
         expected = self.get_expected_src_refresh_resp(
             actual['refresh_id'],
             offset=100,
+            max_primary_key=1000,
             batch_size=500,
             priority=80,
         )

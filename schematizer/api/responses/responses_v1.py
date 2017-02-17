@@ -134,6 +134,7 @@ def get_refresh_response_from_refresh(refresh):
         'namespace_name': refresh.source.namespace.name,
         'status': refresh.status,
         'offset': refresh.offset,
+        'max_primary_key': refresh.max_primary_key,
         'batch_size': refresh.batch_size,
         'priority': refresh.priority,
         'filter_condition': refresh.filter_condition,

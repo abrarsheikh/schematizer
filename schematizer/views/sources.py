@@ -141,6 +141,7 @@ def create_refresh(request):
     refresh = schema_repository.create_refresh(
         source_id=source_id,
         offset=request_body.get('offset'),
+        max_primary_key=request_body.get('max_primary_key'),
         batch_size=request_body.get('batch_size'),
         priority=request_body.get('priority'),
         filter_condition=request_body.get('filter_condition'),

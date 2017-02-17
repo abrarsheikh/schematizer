@@ -57,6 +57,7 @@ def update_refresh(request):
 
     refresh.status = request.json_body['status']
     refresh.offset = request.json_body['offset']
+    refresh.max_primary_key = request.json_body['max_primary_key']
     session.flush()
     return responses_v1.get_refresh_response_from_refresh(refresh)
 

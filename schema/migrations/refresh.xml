@@ -82,4 +82,10 @@ under the License.
             newDataType="varchar(255) COLLATE utf8_unicode_ci"
             tableName="refresh" />
     </changeSet>
+    <changeSet author="jian" id="1487272423">
+        <comment>[2017-02-16] Add max_primary_key column</comment>
+        <addColumn tableName="refresh">
+            <column name="max_primary_key" type="INT(11)" defaultValue="NULL"/>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

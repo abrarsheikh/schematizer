@@ -406,6 +406,7 @@ class TestSchemaRepository(DBTestCase):
             source_id=source.id,
             offset=0,
             batch_size=200,
+            max_primary_key=1000,
             priority=50,
             filter_condition='user="someone"',
             avg_rows_per_second_cap=100
@@ -419,6 +420,7 @@ class TestSchemaRepository(DBTestCase):
             source_id=refresh.source_id,
             status=refresh.status,
             offset=refresh.offset,
+            max_primary_key=refresh.max_primary_key,
             batch_size=refresh.batch_size,
             priority=refresh.priority,
             filter_condition=refresh.filter_condition
@@ -493,6 +495,7 @@ class TestSchemaRepository(DBTestCase):
         assert expected.source_id == actual.source_id
         assert expected.status == actual.status
         assert expected.offset == actual.offset
+        assert expected.max_primary_key == actual.max_primary_key
         assert expected.batch_size == actual.batch_size
         assert expected.priority == actual.priority
         assert expected.filter_condition == actual.filter_condition

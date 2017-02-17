@@ -3,6 +3,7 @@ CREATE TABLE `refresh` (
   `source_id` int(11) NOT NULL,
   `status` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `offset` int(11) NOT NULL,
+  `max_primary_key` int(11) DEFAULT NULL,
   `batch_size` int(11) NOT NULL,
   `priority` int(11) NOT NULL,
   `filter_condition` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,

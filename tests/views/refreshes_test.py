@@ -66,7 +66,8 @@ class TestUpdateRefresh(RefreshTestBase):
     def update_request(self):
         return {
             'status': 'IN_PROGRESS',
-            'offset': 100
+            'offset': 100,
+            'max_primary_key': 1000
         }
 
     def test_update_refresh(self, mock_request, source_bar_refresh):
@@ -77,7 +78,8 @@ class TestUpdateRefresh(RefreshTestBase):
         expected = self.get_expected_src_refresh_resp(
             source_bar_refresh.id,
             status='IN_PROGRESS',
-            offset=100
+            offset=100,
+            max_primary_key=1000
         )
         assert actual == expected
 
