@@ -251,6 +251,32 @@
                 }
             ],
             "path": "/v1/namespaces/{namespace}/sources/{source}/aliases/{alias}/schema"
+        },
+        {
+            "operations": [
+                {
+                    "authorizations": {},
+                    "method": "GET",
+                    "nickname": "get_schema_and_alias_from_namespace_name",
+                    "parameters": [
+                        {
+                            "in": "path",
+                            "name": "namespace_name",
+                            "required": true,
+                            "type": "string"
+                        }
+                    ],
+                    "responseMessages": [
+                        {
+                            "code": 400,
+                            "message": "Namespace name not found"
+                        }
+                    ],
+                    "summary": "Returns the schema id, source name and aliases with this namespace name.",
+                    "type": "array"
+                }
+            ],
+            "path": "/v1/namespaces/{namespace_name}/aliases"
         }
     ],
     "basePath": "http://169.254.255.254:20912",
