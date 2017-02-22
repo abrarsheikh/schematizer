@@ -256,12 +256,17 @@
             "operations": [
                 {
                     "authorizations": {},
+                    "items": {
+                        "$ref": "SchemaAlias"
+                    },
                     "method": "GET",
                     "nickname": "get_schema_and_alias_from_namespace_name",
                     "parameters": [
                         {
+                            "description": "Namespace name for which schema alias will be fetched",
                             "in": "path",
                             "name": "namespace_name",
+                            "paramType": "path",
                             "required": true,
                             "type": "string"
                         }
@@ -483,6 +488,23 @@
                 "updated_at": {
                     "description": "When this schema is last updated",
                     "format": "date-time",
+                    "type": "string"
+                }
+            }
+        },
+        "SchemaAlias": {
+            "id": "SchemaAlias",
+            "properties": {
+                "alias": {
+                    "description": "Alias of the schema",
+                    "type": "string"
+                },
+                "schema_id": {
+                    "description": "ID of the schema",
+                    "type": "integer"
+                },
+                "source_name": {
+                    "description": "Name of the source, such as 'User' for table User.",
                     "type": "string"
                 }
             }
