@@ -874,7 +874,7 @@
         },
         "description": "Schematizer is REST service to register and retrieve Avro schemas, maintain Avro schema backward compatibilities, register producer and consumer of Avro schemas, and generate redshift push plans.",
         "title": "Data Pipeline Schematizer",
-        "version": "1.5.2"
+        "version": "1.5.3"
     },
     "paths": {
         "/v1/categories": {
