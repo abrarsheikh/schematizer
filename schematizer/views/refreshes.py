@@ -55,9 +55,13 @@ def update_refresh(request):
     except EntityNotFoundError as e:
         raise exceptions_v1.entity_not_found_exception(e.message)
 
-    refresh.status = request.json_body['status']
-    refresh.offset = request.json_body['offset']
-    refresh.max_primary_key = request.json_body['max_primary_key']
+    if request.json_body.get('status') is not None:
+        refresh.status = request.json_body.get('status')
+    if request.json_body.get('offset') is not None:
+        refresh.offset = request.json_body.get('offset')
+    if request.json_body.get('max_primary_key') is not None:
+        refresh.max_primary_key = request.json_body.get('max_primary_key')
+
     session.flush()
     return responses_v1.get_refresh_response_from_refresh(refresh)
 
