@@ -406,7 +406,6 @@ class TestSchemaRepository(DBTestCase):
             source_id=source.id,
             offset=0,
             batch_size=200,
-            max_primary_key=1000,
             priority=50,
             filter_condition='user="someone"',
             avg_rows_per_second_cap=100

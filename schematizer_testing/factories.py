@@ -145,7 +145,6 @@ def create_refresh(source_id, **overrides):
     params = {
         'source_id': source_id,
         'offset': 0,
-        'max_primary_key': 1000,
         'batch_size': 100,
         'priority': Priority.MEDIUM.value,
         'status': RefreshStatus.NOT_STARTED.value,

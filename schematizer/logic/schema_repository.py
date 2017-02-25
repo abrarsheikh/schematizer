@@ -743,7 +743,6 @@ def list_refreshes_by_source_id(source_id):
 def create_refresh(
         source_id,
         offset,
-        max_primary_key,
         batch_size,
         priority,
         filter_condition,
@@ -752,7 +751,6 @@ def create_refresh(
     refresh = models.Refresh(
         source_id=source_id,
         offset=offset,
-        max_primary_key=max_primary_key,
         batch_size=batch_size,
         priority=priority,
         filter_condition=filter_condition,

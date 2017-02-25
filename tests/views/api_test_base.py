@@ -92,12 +92,15 @@ class ApiTestBase(DBTestCase):
             'namespace_name': src_refresh.source.namespace.name,
             'status': models.RefreshStatus(src_refresh.status).name,
             'offset': src_refresh.offset,
-            'max_primary_key': src_refresh.max_primary_key,
             'batch_size': src_refresh.batch_size,
             'priority': src_refresh.priority,
             'created_at': _format_timestamp(src_refresh.created_at),
             'updated_at': _format_timestamp(src_refresh.updated_at)
         }
+        if src_refresh.max_primary_key is not None:
+            expected[
+                'max_primary_key'
+            ] = src_refresh.max_primary_key
         if src_refresh.avg_rows_per_second_cap is not None:
             expected[
                 'avg_rows_per_second_cap'
