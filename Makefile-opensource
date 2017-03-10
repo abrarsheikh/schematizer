@@ -33,7 +33,7 @@ docs:
 	tox -c tox-opensource.ini -e docs
 
 test:
-	tox -c tox-opensource.ini $(REBUILD_FLAG)
+	OPEN_SOURCE_MODE=true tox -c tox-opensource.ini $(REBUILD_FLAG)
 
 itest: cook-image
 	tox -c tox-opensource.ini -e acceptance

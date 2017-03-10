@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import time
+import os
 
 import mock
 import pytest
@@ -524,6 +525,10 @@ class TestRegisterSchemaAlias(RegisterSchemaTestBase):
 
         assert actual_schema_one == actual_schema_two
 
+    @pytest.mark.skipif(
+        os.getenv('OPEN_SOURCE_MODE', 'false').lower() in ['t', 'true', 'y', 'yes'],
+        reason="skip this in open source mode."
+    )
     def test_alias_already_registered_alias_with_another_source_namespace(
         self,
         mock_request,

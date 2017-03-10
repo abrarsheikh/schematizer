@@ -10,7 +10,8 @@ RUN     apt-get update && \
             python-virtualenv \
             python-pip \
             curl \
-            git
+            git \
+            varnish
 
 # uwsgi deps
 RUN     apt-get install -y libyaml-0-2 \
@@ -40,5 +41,5 @@ ADD     . /code
 WORKDIR /code
 ENV     BASEPATH /code
 USER    nobody
-CMD     /code/virtualenv_run/bin/python -m serviceinitd.schematizer
+CMD     varnishd -n /tmp/varnish -a :8888 -f /code/varnish.vcl -s malloc,50M && /code/virtualenv_run/bin/python -m serviceinitd.schematizer
 EXPOSE  8888

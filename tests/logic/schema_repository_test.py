@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import datetime
+import os
 
 import mock
 import pytest
@@ -1098,6 +1099,10 @@ class TestRegisterSchema(DBTestCase):
                 source_name=invalid_name
             )
 
+    @pytest.mark.skipif(
+        os.getenv('OPEN_SOURCE_MODE', 'false').lower() in ['t', 'true', 'y', 'yes'],
+        reason="skip this in open source mode."
+    )
     def test_logging_info(self):
         with mock.patch('schematizer.logic.schema_repository.log') as mock_log:
             self._register_avro_schema(self.avro_schema_json)

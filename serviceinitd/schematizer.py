@@ -22,5 +22,5 @@ from schematizer.webapp import create_application
 
 
 app = create_application()
-server = make_server('0.0.0.0', 8888, app)
+server = make_server('0.0.0.0', 8889, app)
 server.serve_forever()
